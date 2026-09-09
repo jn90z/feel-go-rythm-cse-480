@@ -8,11 +8,17 @@ The legacy application remains untouched at the repository root. This folder is 
 
 - Vite + TypeScript project
 - Babylon.js 3D scene
-- Independent graph data model
-- Stable UUID vertex and edge identities
-- Add vertices
-- Connect the two most recently added vertices
-- Clear graph
+- Independent graph data model with stable UUID identities
+- Interactive vertex and edge selection
+- Drag-to-move vertices with live edge geometry
+- Safe vertex/edge deletion
+- BFS and DFS implementations
+- Step-by-step algorithm playback
+- Play / pause / previous / next controls
+- Adjustable playback speed
+- Live queue or stack display
+- Algorithm vertex states: default, frontier, active, visited
+- Synchronized pseudocode highlighting
 - Responsive editor shell
 
 ## Run locally
@@ -33,6 +39,10 @@ npm run build
 
 ```text
 src/
+├── algorithms/
+│   ├── AlgorithmStep.ts
+│   ├── bfs.ts
+│   └── dfs.ts
 ├── graph/
 │   └── Graph.ts
 ├── visualization/
@@ -41,8 +51,15 @@ src/
 └── styles.css
 ```
 
-The graph model intentionally has no Babylon.js dependencies. Rendering is handled separately so algorithms can operate against a clean graph data structure.
+The graph model has no Babylon.js dependencies. Algorithms operate only against the graph data structure and emit immutable-style playback frames. The renderer consumes those frames to update the 3D scene, which keeps algorithm correctness separate from visualization.
 
 ## Next milestone
 
-The next editor pass should add direct vertex picking, drag-to-move behavior, explicit edge creation by selecting two vertices, edge/vertex deletion, labels, and synchronized edge updates while vertices move. After that, algorithm playback can be layered on top of the clean graph model.
+Recommended next work:
+
+1. Render vertex labels directly in the 3D scene.
+2. Preserve multi-vertex visual selection when creating edges.
+3. Add weighted edges and editable edge weights.
+4. Implement Dijkstra using the same playback-frame architecture.
+5. Add graph save/load and JSON import/export.
+6. Add automated unit tests for graph mutations, BFS, and DFS.
