@@ -1,14 +1,15 @@
 import type { VertexId } from "../graph/Graph";
 
-export type AlgorithmName = "bfs" | "dfs";
+export type AlgorithmName = "bfs" | "dfs" | "dijkstra";
 export type VertexVisualState = "default" | "frontier" | "active" | "visited";
 
 export interface AlgorithmStep {
   line: number;
   message: string;
-  frontierLabel: "Queue" | "Stack";
+  frontierLabel: "Queue" | "Stack" | "Open Set";
   frontier: VertexId[];
   vertexStates: Map<VertexId, VertexVisualState>;
+  distances?: Map<VertexId, number>;
 }
 
 export function cloneStates(
