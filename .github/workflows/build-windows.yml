@@ -30,10 +30,6 @@ jobs:
         working-directory: modern
         run: npm test
 
-      - name: Generate platform icons
-        working-directory: modern
-        run: npm run icons:generate
-
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v1
         env:
