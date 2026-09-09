@@ -20,8 +20,7 @@
     "ios:init": "tauri ios init",
     "ios:dev": "tauri ios dev",
     "ios:build:sim": "tauri ios build --target aarch64-sim --debug",
-    "ios:build": "tauri ios build",
-    "icons:generate": "tauri icon assets/app-icons/source.png"
+    "ios:build": "tauri ios build"
   },
   "dependencies": {
     "@babylonjs/core": "^8.26.0"
