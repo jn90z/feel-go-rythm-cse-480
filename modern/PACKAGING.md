@@ -6,41 +6,77 @@ Feel-go-Rythm uses one TypeScript/Babylon.js frontend for every target.
 
 ### Web
 
-GitHub Actions workflow: `.github/workflows/ci-web.yml`
+Workflow: `.github/workflows/ci-web.yml`
 
-This workflow:
-
+The web CI currently:
 1. installs dependencies,
 2. runs automated tests,
 3. builds the Vite production bundle,
-4. uploads `dist/` as a downloadable workflow artifact.
+4. uploads `modern/dist` as the `feel-go-rythm-web` artifact.
 
 ### Windows
 
-GitHub Actions workflow: `.github/workflows/build-windows.yml`
+Workflow: `.github/workflows/build-windows.yml`
 
-This workflow builds the Tauri desktop application on a Windows runner and uploads generated MSI/NSIS bundles as workflow artifacts.
+The Windows workflow uses Tauri to build native Windows bundles and uploads MSI/NSIS output as the `feel-go-rythm-windows` artifact.
 
 ### Android
 
-The Tauri configuration is mobile-ready and includes Android SDK 24 as the minimum supported version.
+Workflow: `.github/workflows/mobile-scaffold.yml`
 
-The current mobile workflow validates Android project generation and uploads the generated Android Studio project. Once the generated project is committed and signing is configured, the next workflow step will build APK and AAB artifacts with:
+On every push to `app-packaging`, the Android job:
+1. configures Node, Rust, Java, Android SDK and NDK,
+2. runs the automated test suite,
+3. initializes the generated Tauri Android project,
+4. builds a debug APK,
+5. uploads APK files as `feel-go-rythm-android-debug`,
+6. uploads the generated Android Studio project separately.
 
+The debug APK does not require Google Play signing and is intended for direct device testing.
+
+Store-ready release builds remain available through:
 ```bash
 npm run android:build:apk
 npm run android:build:aab
 ```
 
-Publishing to Google Play requires Android signing credentials.
+The AAB is the preferred Google Play package. Production distribution requires signing credentials.
 
 ### iOS
 
-The current mobile workflow validates iOS/Xcode project generation on macOS and uploads the generated Apple project.
+The same mobile workflow includes a macOS job that:
+1. configures Node, Rust, Xcode tooling and CocoaPods,
+2. runs tests,
+3. initializes the generated Tauri iOS project,
+4. builds an Apple Silicon iOS Simulator app,
+5. uploads the simulator build and generated Xcode project.
 
-The next release stage will build an IPA after Apple signing credentials and an App Store Connect bundle identifier are configured.
+The simulator target is deliberately unsigned and intended to prove the iOS build before Apple signing is configured.
 
-iOS packaging requires macOS/Xcode and Apple code signing.
+A signed device/App Store build will later use:
+```bash
+npm run ios:build
+```
+
+Signed iOS distribution requires an Apple Developer team, certificate/provisioning configuration, and App Store Connect setup.
+
+## Local packaging commands
+
+From the `modern` directory:
+
+```bash
+npm install
+npm test
+npm run build
+
+npm run desktop:build
+npm run android:init
+npm run android:build:debug-apk
+npm run ios:init
+npm run ios:build:sim
+```
+
+Android commands require the Android SDK/NDK. iOS commands require macOS and Xcode.
 
 ## Branch strategy
 
@@ -48,4 +84,4 @@ iOS packaging requires macOS/Xcode and Apple code signing.
 
 `modern-rewrite` remains the primary application-development branch.
 
-`app-packaging` is the temporary packaging/CI branch. Once the build workflows are stable, merge it back into `modern-rewrite` so there is still one application codebase.
+`app-packaging` is the temporary packaging/CI branch. Once web, Windows, Android and iOS builds are stable, merge the packaging infrastructure back into `modern-rewrite` so all targets continue from one codebase.
