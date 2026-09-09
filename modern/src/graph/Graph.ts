@@ -28,11 +28,17 @@ export class Graph {
     return vertex;
   }
 
-  removeVertex(id: VertexId): void {
-    this.vertices.delete(id);
+  removeVertex(id: VertexId): EdgeId[] {
+    if (!this.vertices.delete(id)) return [];
+
+    const removedEdges: EdgeId[] = [];
     for (const edge of [...this.edges.values()]) {
-      if (edge.from === id || edge.to === id) this.edges.delete(edge.id);
+      if (edge.from === id || edge.to === id) {
+        this.edges.delete(edge.id);
+        removedEdges.push(edge.id);
+      }
     }
+    return removedEdges;
   }
 
   addEdge(from: VertexId, to: VertexId, weight = 1): Edge {
@@ -51,10 +57,18 @@ export class Graph {
     return edge;
   }
 
+  removeEdge(id: EdgeId): boolean {
+    return this.edges.delete(id);
+  }
+
   clear(): void {
     this.vertices.clear();
     this.edges.clear();
     this.nextVertexNumber = 0;
+  }
+
+  getVertex(id: VertexId): Vertex | undefined {
+    return this.vertices.get(id);
   }
 
   getVertices(): Vertex[] {
