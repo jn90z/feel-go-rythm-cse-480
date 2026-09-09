@@ -1,6 +1,7 @@
 import {
   ArcRotateCamera,
   Color3,
+  DynamicTexture,
   Engine,
   HemisphericLight,
   Mesh,
@@ -29,7 +30,9 @@ export class GraphScene {
   private readonly camera: ArcRotateCamera;
   private readonly ground: Mesh;
   private readonly vertexMeshes = new Map<VertexId, Mesh>();
+  private readonly vertexLabels = new Map<VertexId, Mesh>();
   private readonly edgeMeshes = new Map<EdgeId, Mesh>();
+  private readonly edgeLabels = new Map<EdgeId, Mesh>();
   private readonly edges = new Map<EdgeId, Edge>();
   private selected: Selection = null;
   private draggingVertexId: VertexId | null = null;
@@ -80,7 +83,13 @@ export class GraphScene {
     mat.diffuseColor = new Color3(0.15, 0.65, 1);
     mesh.material = mat;
 
+    const label = this.createTextPlane(`vertex-label-${vertex.id}`, vertex.label, 1.8, 0.8);
+    label.parent = mesh;
+    label.position = new Vector3(0, 1.35, 0);
+    label.isPickable = false;
+
     this.vertexMeshes.set(vertex.id, mesh);
+    this.vertexLabels.set(vertex.id, label);
     this.vertexIndex++;
   }
 
@@ -94,18 +103,36 @@ export class GraphScene {
     mat.diffuseColor = new Color3(0.8, 0.82, 0.9);
     mesh.material = mat;
 
+    const label = this.createTextPlane(`edge-label-${edge.id}`, String(edge.weight), 1.5, 0.65);
+    label.isPickable = false;
+
     this.edgeMeshes.set(edge.id, mesh);
+    this.edgeLabels.set(edge.id, label);
     this.edges.set(edge.id, edge);
     this.updateEdge(edge.id);
   }
 
+  updateEdgeWeight(edge: Edge): void {
+    this.edges.set(edge.id, edge);
+    const old = this.edgeLabels.get(edge.id);
+    old?.dispose();
+    const label = this.createTextPlane(`edge-label-${edge.id}`, String(edge.weight), 1.5, 0.65);
+    label.isPickable = false;
+    this.edgeLabels.set(edge.id, label);
+    this.updateEdge(edge.id);
+  }
+
   removeVertex(id: VertexId): void {
+    this.vertexLabels.get(id)?.dispose();
+    this.vertexLabels.delete(id);
     this.vertexMeshes.get(id)?.dispose();
     this.vertexMeshes.delete(id);
     if (this.selected?.kind === "vertex" && this.selected.id === id) this.setSelection(null);
   }
 
   removeEdge(id: EdgeId): void {
+    this.edgeLabels.get(id)?.dispose();
+    this.edgeLabels.delete(id);
     this.edgeMeshes.get(id)?.dispose();
     this.edgeMeshes.delete(id);
     this.edges.delete(id);
@@ -147,14 +174,36 @@ export class GraphScene {
   }
 
   clear(): void {
+    for (const mesh of this.vertexLabels.values()) mesh.dispose();
+    for (const mesh of this.edgeLabels.values()) mesh.dispose();
     for (const mesh of this.vertexMeshes.values()) mesh.dispose();
     for (const mesh of this.edgeMeshes.values()) mesh.dispose();
+    this.vertexLabels.clear();
+    this.edgeLabels.clear();
     this.vertexMeshes.clear();
     this.edgeMeshes.clear();
     this.edges.clear();
     this.vertexIndex = 0;
     this.selected = null;
     this.draggingVertexId = null;
+  }
+
+  private createTextPlane(name: string, text: string, width: number, height: number): Mesh {
+    const plane = MeshBuilder.CreatePlane(name, { width, height }, this.scene);
+    plane.billboardMode = Mesh.BILLBOARDMODE_ALL;
+
+    const texture = new DynamicTexture(`${name}-texture`, { width: 512, height: 256 }, this.scene, true);
+    texture.hasAlpha = true;
+    texture.drawText(text, null, 170, "bold 150px Arial", "white", "transparent", true, true);
+
+    const material = new StandardMaterial(`${name}-material`, this.scene);
+    material.diffuseTexture = texture;
+    material.opacityTexture = texture;
+    material.emissiveColor = Color3.White();
+    material.disableLighting = true;
+    material.backFaceCulling = false;
+    plane.material = material;
+    return plane;
   }
 
   private applySelectionHighlight(): void {
@@ -250,9 +299,13 @@ export class GraphScene {
     const length = delta.length();
     if (length === 0) return;
 
-    mesh.position = from.position.add(to.position).scale(0.5);
+    const midpoint = from.position.add(to.position).scale(0.5);
+    mesh.position = midpoint;
     mesh.scaling.y = length;
     mesh.rotationQuaternion = null;
     mesh.alignWithNormal(delta.normalize());
+
+    const label = this.edgeLabels.get(edgeId);
+    if (label) label.position = midpoint.add(new Vector3(0, 0.8, 0));
   }
 }
