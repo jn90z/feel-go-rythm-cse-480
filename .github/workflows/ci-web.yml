@@ -1,0 +1,43 @@
+name: CI - Web
+
+on:
+  push:
+    branches:
+      - app-packaging
+      - modern-rewrite
+  pull_request:
+    branches:
+      - modern-rewrite
+  workflow_dispatch:
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: modern
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build web app
+        run: npm run build
+
+      - name: Upload web artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: feel-go-rythm-web
+          path: modern/dist
+          if-no-files-found: error
