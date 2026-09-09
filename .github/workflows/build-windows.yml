@@ -1,0 +1,47 @@
+name: Build - Windows Desktop
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install frontend dependencies
+        working-directory: modern
+        run: npm install
+
+      - name: Run tests
+        working-directory: modern
+        run: npm test
+
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: modern
+
+      - name: Upload Windows bundles
+        uses: actions/upload-artifact@v4
+        with:
+          name: feel-go-rythm-windows
+          path: |
+            modern/src-tauri/target/release/bundle/msi/**
+            modern/src-tauri/target/release/bundle/nsis/**
+          if-no-files-found: error
