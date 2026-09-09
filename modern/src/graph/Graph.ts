@@ -61,6 +61,15 @@ export class Graph {
     return this.edges.delete(id);
   }
 
+  neighbors(id: VertexId): VertexId[] {
+    const result: VertexId[] = [];
+    for (const edge of this.edges.values()) {
+      if (edge.from === id) result.push(edge.to);
+      else if (edge.to === id) result.push(edge.from);
+    }
+    return result;
+  }
+
   clear(): void {
     this.vertices.clear();
     this.edges.clear();
