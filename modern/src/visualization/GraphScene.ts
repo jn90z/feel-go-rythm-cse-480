@@ -10,6 +10,7 @@ import {
   StandardMaterial,
   Vector3
 } from "@babylonjs/core";
+import type { VertexVisualState } from "../algorithms/AlgorithmStep";
 import type { Edge, EdgeId, Vertex, VertexId } from "../graph/Graph";
 
 type Selection =
@@ -113,24 +114,36 @@ export class GraphScene {
 
   setSelection(selection: Selection): void {
     this.selected = selection;
+    this.applySelectionHighlight();
+    this.events.onSelect(selection);
+  }
 
+  applyAlgorithmState(states: Map<VertexId, VertexVisualState>): void {
     for (const [id, mesh] of this.vertexMeshes) {
       const mat = mesh.material as StandardMaterial;
-      mat.emissiveColor =
-        selection?.kind === "vertex" && selection.id === id
-          ? new Color3(0.15, 0.55, 0.9)
-          : Color3.Black();
+      switch (states.get(id) ?? "default") {
+        case "frontier":
+          mat.diffuseColor = new Color3(1, 0.62, 0.12);
+          break;
+        case "active":
+          mat.diffuseColor = new Color3(1, 0.22, 0.22);
+          break;
+        case "visited":
+          mat.diffuseColor = new Color3(0.24, 0.78, 0.38);
+          break;
+        default:
+          mat.diffuseColor = new Color3(0.15, 0.65, 1);
+      }
     }
+    this.applySelectionHighlight();
+  }
 
-    for (const [id, mesh] of this.edgeMeshes) {
+  resetAlgorithmState(): void {
+    for (const mesh of this.vertexMeshes.values()) {
       const mat = mesh.material as StandardMaterial;
-      mat.emissiveColor =
-        selection?.kind === "edge" && selection.id === id
-          ? new Color3(0.5, 0.4, 0.1)
-          : Color3.Black();
+      mat.diffuseColor = new Color3(0.15, 0.65, 1);
     }
-
-    this.events.onSelect(selection);
+    this.applySelectionHighlight();
   }
 
   clear(): void {
@@ -142,6 +155,24 @@ export class GraphScene {
     this.vertexIndex = 0;
     this.selected = null;
     this.draggingVertexId = null;
+  }
+
+  private applySelectionHighlight(): void {
+    for (const [id, mesh] of this.vertexMeshes) {
+      const mat = mesh.material as StandardMaterial;
+      mat.emissiveColor =
+        this.selected?.kind === "vertex" && this.selected.id === id
+          ? new Color3(0.15, 0.55, 0.9)
+          : Color3.Black();
+    }
+
+    for (const [id, mesh] of this.edgeMeshes) {
+      const mat = mesh.material as StandardMaterial;
+      mat.emissiveColor =
+        this.selected?.kind === "edge" && this.selected.id === id
+          ? new Color3(0.5, 0.4, 0.1)
+          : Color3.Black();
+    }
   }
 
   private installPointerInteractions(): void {
