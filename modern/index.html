@@ -21,9 +21,44 @@
         </div>
         <p id="status">Ready</p>
       </aside>
+
       <main class="canvas-wrap">
         <canvas id="renderCanvas"></canvas>
       </main>
+
+      <aside class="algorithm-panel">
+        <div class="panel-section">
+          <label for="algorithmSelect">Algorithm</label>
+          <select id="algorithmSelect">
+            <option value="bfs">Breadth-First Search</option>
+            <option value="dfs">Depth-First Search</option>
+          </select>
+          <button id="useSelectedStart">Use Selected Vertex as Start</button>
+          <p id="startVertex">Start vertex: none</p>
+        </div>
+
+        <div class="panel-section controls">
+          <button id="previousStep">Previous</button>
+          <button id="playPause">Play</button>
+          <button id="nextStep">Next</button>
+          <label for="speed">Speed</label>
+          <input id="speed" type="range" min="150" max="1400" step="50" value="650" />
+        </div>
+
+        <div class="panel-section">
+          <div class="frontier-header">
+            <strong id="frontierTitle">Queue</strong>
+            <span id="stepCounter">0 / 0</span>
+          </div>
+          <div id="frontier" class="frontier"></div>
+          <p id="algorithmMessage">Choose a start vertex and run an algorithm.</p>
+        </div>
+
+        <div class="panel-section code-section">
+          <strong>Pseudocode</strong>
+          <pre id="pseudocode"></pre>
+        </div>
+      </aside>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
