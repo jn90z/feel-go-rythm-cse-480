@@ -13,11 +13,20 @@
         <button id="addEdge">Connect Selected</button>
         <button id="deleteSelected">Delete Selected</button>
         <button id="clearGraph">Clear Graph</button>
+
+        <div class="panel-section">
+          <strong>Selected Edge</strong>
+          <label for="edgeWeight">Weight</label>
+          <input id="edgeWeight" type="number" min="0" step="0.5" value="1" />
+          <button id="applyEdgeWeight">Apply Weight</button>
+        </div>
+
         <div class="help">
           <strong>Editor</strong>
           <span>Click a vertex or edge to select it.</span>
           <span>Drag vertices to move them.</span>
           <span>Select two vertices, then connect them.</span>
+          <span>Select an edge to edit its weight.</span>
         </div>
         <p id="status">Ready</p>
       </aside>
@@ -32,6 +41,7 @@
           <select id="algorithmSelect">
             <option value="bfs">Breadth-First Search</option>
             <option value="dfs">Depth-First Search</option>
+            <option value="dijkstra">Dijkstra</option>
           </select>
           <button id="useSelectedStart">Use Selected Vertex as Start</button>
           <p id="startVertex">Start vertex: none</p>
@@ -51,6 +61,7 @@
             <span id="stepCounter">0 / 0</span>
           </div>
           <div id="frontier" class="frontier"></div>
+          <div id="distances" class="distance-grid"></div>
           <p id="algorithmMessage">Choose a start vertex and run an algorithm.</p>
         </div>
 
