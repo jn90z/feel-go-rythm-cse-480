@@ -2,6 +2,7 @@ import "./styles.css";
 import type { AlgorithmStep } from "./algorithms/AlgorithmStep";
 import { BFS_PSEUDOCODE, runBfs } from "./algorithms/bfs";
 import { DFS_PSEUDOCODE, runDfs } from "./algorithms/dfs";
+import { DIJKSTRA_PSEUDOCODE, runDijkstra } from "./algorithms/dijkstra";
 import { Graph, type EdgeId, type VertexId } from "./graph/Graph";
 import { GraphScene } from "./visualization/GraphScene";
 
@@ -16,6 +17,8 @@ const addVertexButton = get<HTMLButtonElement>("#addVertex");
 const addEdgeButton = get<HTMLButtonElement>("#addEdge");
 const deleteSelectedButton = get<HTMLButtonElement>("#deleteSelected");
 const clearButton = get<HTMLButtonElement>("#clearGraph");
+const edgeWeight = get<HTMLInputElement>("#edgeWeight");
+const applyEdgeWeight = get<HTMLButtonElement>("#applyEdgeWeight");
 const status = get<HTMLParagraphElement>("#status");
 const algorithmSelect = get<HTMLSelectElement>("#algorithmSelect");
 const useSelectedStart = get<HTMLButtonElement>("#useSelectedStart");
@@ -26,6 +29,7 @@ const nextStep = get<HTMLButtonElement>("#nextStep");
 const speed = get<HTMLInputElement>("#speed");
 const frontierTitle = get<HTMLElement>("#frontierTitle");
 const frontier = get<HTMLDivElement>("#frontier");
+const distances = get<HTMLDivElement>("#distances");
 const stepCounter = get<HTMLElement>("#stepCounter");
 const algorithmMessage = get<HTMLParagraphElement>("#algorithmMessage");
 const pseudocode = get<HTMLPreElement>("#pseudocode");
@@ -51,6 +55,8 @@ const graphScene = new GraphScene(canvas, {
     if (selection.kind === "edge") {
       selectedVertices.length = 0;
       selectedEdge = selection.id;
+      const edge = graph.getEdge(selection.id);
+      if (edge) edgeWeight.value = String(edge.weight);
       status.textContent = "Edge selected.";
       return;
     }
@@ -107,7 +113,9 @@ function renderPseudocode(lines: string[], activeLine = -1): void {
 }
 
 function currentPseudocode(): string[] {
-  return algorithmSelect.value === "dfs" ? DFS_PSEUDOCODE : BFS_PSEUDOCODE;
+  if (algorithmSelect.value === "dfs") return DFS_PSEUDOCODE;
+  if (algorithmSelect.value === "dijkstra") return DIJKSTRA_PSEUDOCODE;
+  return BFS_PSEUDOCODE;
 }
 
 function buildSteps(): void {
@@ -119,10 +127,9 @@ function buildSteps(): void {
     return;
   }
 
-  steps =
-    algorithmSelect.value === "dfs"
-      ? runDfs(graph, startVertex)
-      : runBfs(graph, startVertex);
+  if (algorithmSelect.value === "dfs") steps = runDfs(graph, startVertex);
+  else if (algorithmSelect.value === "dijkstra") steps = runDijkstra(graph, startVertex);
+  else steps = runBfs(graph, startVertex);
 
   stepIndex = steps.length ? 0 : -1;
   renderStep();
@@ -130,9 +137,15 @@ function buildSteps(): void {
 
 function renderStep(): void {
   renderPseudocode(currentPseudocode(), stepIndex >= 0 ? steps[stepIndex]?.line ?? -1 : -1);
+  distances.replaceChildren();
 
   if (stepIndex < 0 || !steps[stepIndex]) {
-    frontierTitle.textContent = algorithmSelect.value === "dfs" ? "Stack" : "Queue";
+    frontierTitle.textContent =
+      algorithmSelect.value === "dfs"
+        ? "Stack"
+        : algorithmSelect.value === "dijkstra"
+          ? "Open Set"
+          : "Queue";
     frontier.replaceChildren();
     stepCounter.textContent = "0 / 0";
     algorithmMessage.textContent = startVertex
@@ -152,6 +165,16 @@ function renderStep(): void {
     chip.className = "frontier-chip";
     chip.textContent = graph.getVertex(id)?.label ?? "?";
     frontier.append(chip);
+  }
+
+  if (step.distances) {
+    for (const vertex of graph.getVertices()) {
+      const value = step.distances.get(vertex.id) ?? Infinity;
+      const item = document.createElement("span");
+      item.className = "distance-chip";
+      item.textContent = `${vertex.label}: ${Number.isFinite(value) ? value : "∞"}`;
+      distances.append(item);
+    }
   }
 
   stepCounter.textContent = `${stepIndex + 1} / ${steps.length}`;
@@ -190,14 +213,32 @@ addEdgeButton.addEventListener("click", () => {
 
   const [from, to] = selectedVertices;
   const before = graph.getEdges().length;
-  const edge = graph.addEdge(from, to);
+  const edge = graph.addEdge(from, to, Number(edgeWeight.value) || 1);
   graphScene.addEdge(edge);
   invalidateAlgorithm();
 
   status.textContent =
     graph.getEdges().length === before
       ? "Those vertices are already connected."
-      : "Edge created.";
+      : `Edge created with weight ${edge.weight}.`;
+});
+
+applyEdgeWeight.addEventListener("click", () => {
+  if (!selectedEdge) {
+    status.textContent = "Select an edge first.";
+    return;
+  }
+
+  const value = Number(edgeWeight.value);
+  try {
+    const edge = graph.updateEdgeWeight(selectedEdge, value);
+    if (!edge) return;
+    graphScene.updateEdgeWeight(edge);
+    invalidateAlgorithm();
+    status.textContent = `Edge weight updated to ${edge.weight}.`;
+  } catch (error) {
+    status.textContent = error instanceof Error ? error.message : "Invalid edge weight.";
+  }
 });
 
 deleteSelectedButton.addEventListener("click", () => {
