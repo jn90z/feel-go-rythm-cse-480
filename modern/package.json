@@ -14,10 +14,12 @@
     "desktop:build": "tauri build",
     "android:init": "tauri android init",
     "android:dev": "tauri android dev",
-    "android:build:apk": "tauri android build -- --apk",
-    "android:build:aab": "tauri android build -- --aab",
+    "android:build:debug-apk": "tauri android build --apk --debug",
+    "android:build:apk": "tauri android build --apk",
+    "android:build:aab": "tauri android build --aab",
     "ios:init": "tauri ios init",
     "ios:dev": "tauri ios dev",
+    "ios:build:sim": "tauri ios build --target aarch64-sim --debug",
     "ios:build": "tauri ios build"
   },
   "dependencies": {
