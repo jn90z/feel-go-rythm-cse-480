@@ -49,6 +49,9 @@ jobs:
       - name: Run tests
         run: npm test
 
+      - name: Generate platform icons
+        run: npm run icons:generate
+
       - name: Initialize Android project
         run: npm run android:init
 
@@ -98,6 +101,9 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+      - name: Generate platform icons
+        run: npm run icons:generate
 
       - name: Initialize iOS project
         run: npm run ios:init
