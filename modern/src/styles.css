@@ -26,13 +26,8 @@ body { overflow: hidden; }
   overflow-y: auto;
 }
 
-.toolbar {
-  border-right: 1px solid #262b36;
-}
-
-.algorithm-panel {
-  border-left: 1px solid #262b36;
-}
+.toolbar { border-right: 1px solid #262b36; }
+.algorithm-panel { border-left: 1px solid #262b36; }
 
 .toolbar h1 {
   margin: 0 0 20px;
@@ -40,13 +35,15 @@ body { overflow: hidden; }
 }
 
 button,
-select {
+select,
+input {
   font: inherit;
 }
 
 .toolbar button,
 .algorithm-panel button,
-.algorithm-panel select {
+.algorithm-panel select,
+.toolbar input {
   width: 100%;
   margin-bottom: 10px;
   padding: 11px 12px;
@@ -96,9 +93,7 @@ select {
   grid-template-columns: repeat(3, 1fr);
 }
 
-.controls button {
-  margin: 0;
-}
+.controls button { margin: 0; }
 
 .controls label,
 .controls input {
@@ -111,23 +106,28 @@ select {
   align-items: center;
 }
 
-.frontier {
+.frontier,
+.distance-grid {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   min-height: 38px;
 }
 
-.frontier-chip {
+.frontier-chip,
+.distance-chip {
   padding: 6px 9px;
   border-radius: 999px;
   background: #252d3a;
   color: #f4f7fb;
 }
 
-.code-section {
-  min-height: 280px;
+.distance-chip {
+  background: #1d2630;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
+
+.code-section { min-height: 280px; }
 
 #pseudocode {
   margin: 0;
