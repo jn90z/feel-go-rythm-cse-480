@@ -57,15 +57,29 @@ export class Graph {
     return edge;
   }
 
+  updateEdgeWeight(id: EdgeId, weight: number): Edge | undefined {
+    if (!Number.isFinite(weight) || weight < 0) {
+      throw new Error("Edge weight must be a non-negative number.");
+    }
+    const edge = this.edges.get(id);
+    if (!edge) return undefined;
+    edge.weight = weight;
+    return edge;
+  }
+
   removeEdge(id: EdgeId): boolean {
     return this.edges.delete(id);
   }
 
   neighbors(id: VertexId): VertexId[] {
-    const result: VertexId[] = [];
+    return this.neighborEdges(id).map(({ vertex }) => vertex);
+  }
+
+  neighborEdges(id: VertexId): Array<{ vertex: VertexId; edge: Edge }> {
+    const result: Array<{ vertex: VertexId; edge: Edge }> = [];
     for (const edge of this.edges.values()) {
-      if (edge.from === id) result.push(edge.to);
-      else if (edge.to === id) result.push(edge.from);
+      if (edge.from === id) result.push({ vertex: edge.to, edge });
+      else if (edge.to === id) result.push({ vertex: edge.from, edge });
     }
     return result;
   }
@@ -78,6 +92,10 @@ export class Graph {
 
   getVertex(id: VertexId): Vertex | undefined {
     return this.vertices.get(id);
+  }
+
+  getEdge(id: EdgeId): Edge | undefined {
+    return this.edges.get(id);
   }
 
   getVertices(): Vertex[] {
