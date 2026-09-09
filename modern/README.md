@@ -8,16 +8,21 @@ The legacy application remains untouched at the repository root. This folder is 
 
 - Vite + TypeScript project
 - Babylon.js 3D scene
-- Independent graph data model with stable UUID identities
-- Interactive vertex and edge selection
+- Stable UUID-based graph model
+- Interactive vertex/edge selection
 - Drag-to-move vertices with live edge geometry
+- Visible vertex labels in the 3D scene
+- Weighted edges with visible weight labels
+- Editable edge weights
 - Safe vertex/edge deletion
-- BFS and DFS implementations
-- Step-by-step algorithm playback
+- BFS playback
+- DFS playback
+- Dijkstra playback
 - Play / pause / previous / next controls
 - Adjustable playback speed
-- Live queue or stack display
-- Algorithm vertex states: default, frontier, active, visited
+- Live queue, stack, or open-set display
+- Dijkstra tentative-distance display
+- Vertex states: default, frontier, active, visited
 - Synchronized pseudocode highlighting
 - Responsive editor shell
 
@@ -42,7 +47,8 @@ src/
 ├── algorithms/
 │   ├── AlgorithmStep.ts
 │   ├── bfs.ts
-│   └── dfs.ts
+│   ├── dfs.ts
+│   └── dijkstra.ts
 ├── graph/
 │   └── Graph.ts
 ├── visualization/
@@ -51,15 +57,13 @@ src/
 └── styles.css
 ```
 
-The graph model has no Babylon.js dependencies. Algorithms operate only against the graph data structure and emit immutable-style playback frames. The renderer consumes those frames to update the 3D scene, which keeps algorithm correctness separate from visualization.
+The graph model has no Babylon.js dependencies. Algorithms operate only against graph data and emit playback frames. The renderer consumes those frames to update the 3D scene.
 
-## Next milestone
+## Recommended next milestone
 
-Recommended next work:
-
-1. Render vertex labels directly in the 3D scene.
-2. Preserve multi-vertex visual selection when creating edges.
-3. Add weighted edges and editable edge weights.
-4. Implement Dijkstra using the same playback-frame architecture.
-5. Add graph save/load and JSON import/export.
-6. Add automated unit tests for graph mutations, BFS, and DFS.
+- Graph save/load and JSON import/export
+- Automated tests for graph operations and algorithms
+- Better edge-creation UX with persistent two-vertex highlighting
+- Directed graph mode and arrowheads
+- Destination selection and shortest-path highlighting for Dijkstra
+- Optional A* pathfinding
