@@ -1,3 +1,24 @@
+const runtimeError = (message: string): void => {
+  const panel = document.querySelector<HTMLElement>("#runtimeError");
+  const text = document.querySelector<HTMLElement>("#runtimeErrorText");
+  if (panel && text) {
+    text.textContent = message;
+    panel.hidden = false;
+  }
+  console.error(message);
+};
+
+window.addEventListener("error", event => {
+  runtimeError(`Startup/runtime error: ${event.message}`);
+});
+
+window.addEventListener("unhandledrejection", event => {
+  const reason = event.reason instanceof Error ? event.reason.message : String(event.reason);
+  runtimeError(`Unhandled error: ${reason}`);
+});
+
+document.documentElement.classList.toggle("android", /Android/i.test(navigator.userAgent));
+
 import "./styles.css";
 import type { AlgorithmStep } from "./algorithms/AlgorithmStep";
 import { BFS_PSEUDOCODE, runBfs } from "./algorithms/bfs";
