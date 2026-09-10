@@ -43,7 +43,33 @@ export class GraphScene {
     private readonly canvas: HTMLCanvasElement,
     private readonly events: GraphSceneEvents
   ) {
-    this.engine = new Engine(canvas, true);
+    const isAndroid = /Android/i.test(navigator.userAgent);
+    this.engine = new Engine(
+      canvas,
+      !isAndroid,
+      {
+        preserveDrawingBuffer: false,
+        stencil: !isAndroid,
+        disableWebGL2Support: isAndroid,
+        doNotHandleContextLost: false
+      },
+      !isAndroid
+    );
+
+    if (isAndroid) {
+      // Favor stability and battery life inside Android System WebView.
+      this.engine.setHardwareScalingLevel(1.5);
+    }
+
+    this.engine.onContextLostObservable.add(() => {
+      console.warn("Babylon WebGL context lost; waiting for Android WebView to restore it.");
+    });
+
+    this.engine.onContextRestoredObservable.add(() => {
+      console.info("Babylon WebGL context restored.");
+      this.engine.resize();
+    });
+
     this.scene = new Scene(this.engine);
     this.scene.clearColor.set(0.04, 0.05, 0.08, 1);
 
@@ -68,8 +94,13 @@ export class GraphScene {
     this.ground.metadata = { kind: "ground" };
 
     this.installPointerInteractions();
-    this.engine.runRenderLoop(() => this.scene.render());
-    window.addEventListener("resize", () => this.engine.resize());
+    this.engine.runRenderLoop(() => {
+      if (!this.scene.isDisposed) this.scene.render();
+    });
+
+    const resize = () => this.engine.resize();
+    window.addEventListener("resize", resize);
+    window.visualViewport?.addEventListener("resize", resize);
   }
 
   addVertex(vertex: Vertex): void {
