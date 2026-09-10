@@ -250,3 +250,32 @@ input {
     font-size: 0.76rem;
   }
 }
+
+
+.runtime-error {
+  position: fixed;
+  inset: 12px;
+  z-index: 9999;
+  padding: 16px;
+  border: 1px solid #7d3434;
+  border-radius: 12px;
+  background: #2b1114;
+  color: #ffd9dc;
+  overflow: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.runtime-error[hidden] {
+  display: none;
+}
+
+.runtime-error strong,
+.runtime-error span {
+  display: block;
+}
+
+.runtime-error span {
+  margin-top: 10px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
