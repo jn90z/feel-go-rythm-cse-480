@@ -19,8 +19,12 @@ type Selection =
   | { kind: "edge"; id: EdgeId }
   | null;
 
+export interface SelectionModifiers {
+  shiftKey: boolean;
+}
+
 export interface GraphSceneEvents {
-  onSelect(selection: Selection): void;
+  onSelect(selection: Selection, modifiers?: SelectionModifiers): void;
   onVertexMoved(id: VertexId): void;
 }
 
@@ -57,7 +61,6 @@ export class GraphScene {
     );
 
     if (isAndroid) {
-      // Favor stability and battery life inside Android System WebView.
       this.engine.setHardwareScalingLevel(1.5);
     }
 
@@ -170,10 +173,10 @@ export class GraphScene {
     if (this.selected?.kind === "edge" && this.selected.id === id) this.setSelection(null);
   }
 
-  setSelection(selection: Selection): void {
+  setSelection(selection: Selection, modifiers?: SelectionModifiers): void {
     this.selected = selection;
     this.applySelectionHighlight();
-    this.events.onSelect(selection);
+    this.events.onSelect(selection, modifiers);
   }
 
   applyAlgorithmState(states: Map<VertexId, VertexVisualState>): void {
@@ -260,12 +263,17 @@ export class GraphScene {
       if (pointerInfo.type === PointerEventTypes.POINTERDOWN) {
         const pick = this.scene.pick(this.scene.pointerX, this.scene.pointerY);
         const metadata = pick?.pickedMesh?.metadata;
+        const pointerEvent = pointerInfo.event as PointerEvent;
 
         if (metadata?.kind === "vertex") {
           const id = metadata.id as VertexId;
-          this.setSelection({ kind: "vertex", id });
-          this.draggingVertexId = id;
+          const shiftKey = Boolean(pointerEvent.shiftKey);
+          this.setSelection({ kind: "vertex", id }, { shiftKey });
 
+          // Shift-click is reserved for the fast-connect gesture, so don't begin a drag.
+          if (shiftKey) return;
+
+          this.draggingVertexId = id;
           const groundPick = this.pickGround();
           const mesh = this.vertexMeshes.get(id);
           if (groundPick && mesh) {
