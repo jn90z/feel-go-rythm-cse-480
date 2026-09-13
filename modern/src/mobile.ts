@@ -1,3 +1,5 @@
+export {};
+
 const isMobileLayout = (): boolean => window.matchMedia("(max-width: 820px)").matches;
 
 const algorithmPanel = document.querySelector<HTMLElement>("#algorithmPanel");
@@ -28,7 +30,9 @@ function setSheetExpanded(expanded: boolean): void {
   if (!algorithmPanel || !sheetToggle) return;
   algorithmPanel.classList.toggle("mobile-collapsed", !expanded);
   sheetToggle.setAttribute("aria-expanded", String(expanded));
-  sheetToggle.lastChild && (sheetToggle.lastChild.textContent = expanded ? " Hide Algorithm Details" : " Algorithm Controls");
+  if (sheetToggle.lastChild) {
+    sheetToggle.lastChild.textContent = expanded ? " Hide Algorithm Details" : " Algorithm Controls";
+  }
 }
 
 function setFullscreen(enabled: boolean): void {
@@ -50,7 +54,11 @@ function selectionCountFromStatus(): number {
   const text = status?.textContent ?? "";
   const match = text.match(/^Selected vertices:\s*(.+?)\.\s*(?:Shift-click|$)/i);
   if (!match) return 0;
-  return match[1].split(",").map(part => part.trim()).filter(Boolean).length;
+  return match[1]
+    .split(",")
+    .map((part: string) => part.trim())
+    .filter(Boolean)
+    .length;
 }
 
 function moveEdgeEditorForMobile(): void {
@@ -98,14 +106,16 @@ canvas?.addEventListener("pointerup", () => {
   }, 0);
 }, { passive: true });
 
-status && new MutationObserver(() => {
-  if (!isMobileLayout()) return;
-  const text = status.textContent ?? "";
-  if (/Edge selected/i.test(text)) {
-    setSheetExpanded(true);
-    showHint("Edge selected. Edit its weight in the controls below.", 2500);
-  }
-}).observe(status, { childList: true, characterData: true, subtree: true });
+if (status) {
+  new MutationObserver(() => {
+    if (!isMobileLayout()) return;
+    const text = status.textContent ?? "";
+    if (/Edge selected/i.test(text)) {
+      setSheetExpanded(true);
+      showHint("Edge selected. Edit its weight in the controls below.", 2500);
+    }
+  }).observe(status, { childList: true, characterData: true, subtree: true });
+}
 
 const mobileMedia = window.matchMedia("(max-width: 820px)");
 mobileMedia.addEventListener("change", () => {
