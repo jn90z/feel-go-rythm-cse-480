@@ -6,6 +6,7 @@ export interface RegisteredLabModule {
   title: string;
   description: string;
   featured?: boolean;
+  replacesLegacyId?: string;
   render: (host: HTMLElement) => void | LabModuleCleanup;
 }
 
