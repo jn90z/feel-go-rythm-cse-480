@@ -67,6 +67,58 @@ jobs:
           fi
           echo "ARM64 native library is compatible with 16KB page-size devices."
 
+      - name: Enable KVM for Android emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Android launch smoke test
+        uses: ReactiveCircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          working-directory: modern
+          script: |
+            set -euo pipefail
+            APK=$(find src-tauri/gen/android/app/build/outputs/apk -name '*universal*debug*.apk' -o -name '*debug*.apk' | head -n 1)
+            echo "Installing $APK"
+            adb install -r "$APK"
+            adb logcat -c
+            adb shell am force-stop com.jn90z.feelgorythm || true
+            adb shell monkey -p com.jn90z.feelgorythm -c android.intent.category.LAUNCHER 1
+            sleep 12
+            PID=$(adb shell pidof com.jn90z.feelgorythm | tr -d '\r')
+            if [ -z "$PID" ]; then
+              echo "ERROR: Feel-go-Rythm did not remain running after launch."
+              adb logcat -d -t 500
+              exit 1
+            fi
+            echo "Feel-go-Rythm is alive after launch (PID $PID)."
+            if adb logcat -d -t 500 | grep -E 'FATAL EXCEPTION|Fatal signal|Process: com\.jn90z\.feelgorythm.*has died'; then
+              echo "ERROR: Fatal Android crash detected in logcat."
+              adb logcat -d -t 500
+              exit 1
+            fi
+            adb shell dumpsys activity activities | grep -m 1 com.jn90z.feelgorythm || true
+
+      - name: Upload Android smoke-test logcat
+        if: always()
+        shell: bash
+        run: adb logcat -d -t 1000 > android-smoke-logcat.txt || true
+
+      - name: Upload Android smoke-test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: feel-go-rythm-android-smoke-logcat
+          path: modern/android-smoke-logcat.txt
+          if-no-files-found: warn
+
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
