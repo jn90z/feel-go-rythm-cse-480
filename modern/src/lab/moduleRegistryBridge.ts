@@ -104,9 +104,10 @@ function updateHubFilters(grid: HTMLElement): void {
   const summary = ensureHubSummary(grid);
   if (summary) {
     const filtered = activeCategory !== "All" || activeQuery.trim().length > 0;
-    summary.textContent = filtered
+    const nextText = filtered
       ? `${visible} of ${cards.length} learning modules match your filters.`
       : `${cards.length} learning modules available. Choose a topic or search for a concept.`;
+    if (summary.textContent !== nextText) summary.textContent = nextText;
   }
 
   body?.querySelectorAll<HTMLButtonElement>("[data-module-category]").forEach(button => {
