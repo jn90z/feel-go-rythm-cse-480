@@ -64,7 +64,7 @@ let stepIndex = -1;
 let timer: number | null = null;
 
 const graphScene = new GraphScene(canvas, {
-  onSelect(selection) {
+  onSelect(selection, modifiers) {
     stopPlayback();
 
     if (!selection) {
@@ -83,6 +83,18 @@ const graphScene = new GraphScene(canvas, {
     }
 
     selectedEdge = null;
+
+    if (modifiers?.shiftKey && selectedVertices.length > 0) {
+      const from = selectedVertices[selectedVertices.length - 1];
+      const to = selection.id;
+      if (from !== to) {
+        connectVertices(from, to, true);
+        selectedVertices.length = 0;
+        selectedVertices.push(to);
+        return;
+      }
+    }
+
     const existingIndex = selectedVertices.indexOf(selection.id);
     if (existingIndex >= 0) selectedVertices.splice(existingIndex, 1);
     else {
@@ -95,7 +107,7 @@ const graphScene = new GraphScene(canvas, {
       .filter((label): label is string => Boolean(label));
 
     status.textContent = labels.length
-      ? `Selected vertices: ${labels.join(", ")}`
+      ? `Selected vertices: ${labels.join(", ")}. Shift-click another vertex to connect.`
       : "Vertex selection cleared.";
   },
 
@@ -120,6 +132,22 @@ function invalidateAlgorithm(): void {
   stepIndex = -1;
   graphScene.resetAlgorithmState();
   renderStep();
+}
+
+function connectVertices(from: VertexId, to: VertexId, chain = false): void {
+  const before = graph.getEdges().length;
+  const edge = graph.addEdge(from, to, Number(edgeWeight.value) || 1);
+  graphScene.addEdge(edge);
+  invalidateAlgorithm();
+
+  const fromLabel = graph.getVertex(from)?.label ?? "?";
+  const toLabel = graph.getVertex(to)?.label ?? "?";
+  status.textContent =
+    graph.getEdges().length === before
+      ? `${fromLabel} and ${toLabel} are already connected.`
+      : chain
+        ? `Connected ${fromLabel} → ${toLabel}. Shift-click another vertex to continue.`
+        : `Connected ${fromLabel} → ${toLabel} with weight ${edge.weight}.`;
 }
 
 function renderPseudocode(lines: string[], activeLine = -1): void {
@@ -233,15 +261,7 @@ addEdgeButton.addEventListener("click", () => {
   }
 
   const [from, to] = selectedVertices;
-  const before = graph.getEdges().length;
-  const edge = graph.addEdge(from, to, Number(edgeWeight.value) || 1);
-  graphScene.addEdge(edge);
-  invalidateAlgorithm();
-
-  status.textContent =
-    graph.getEdges().length === before
-      ? "Those vertices are already connected."
-      : `Edge created with weight ${edge.weight}.`;
+  connectVertices(from, to);
 });
 
 applyEdgeWeight.addEventListener("click", () => {
