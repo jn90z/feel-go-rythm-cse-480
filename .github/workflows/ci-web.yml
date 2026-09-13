@@ -6,6 +6,7 @@ on:
       - app-packaging
       - modern-rewrite
       - big-brain
+      - rouge-test
   pull_request:
     branches:
       - modern-rewrite
