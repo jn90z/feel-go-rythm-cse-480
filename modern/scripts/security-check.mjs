@@ -65,11 +65,11 @@ async function main() {
   const indexHtml = await readFile(indexPath, 'utf8');
   recordMatches(violations, indexPath, indexHtml, forbiddenSourcePatterns);
 
-  const cspMatch = indexHtml.match(/<meta\s+http-equiv=["']Content-Security-Policy["']\s+content=["']([^"']+)["']\s*\/?\s*>/i);
+  const cspMatch = indexHtml.match(/<meta\s+http-equiv=["']Content-Security-Policy["']\s+content=(["'])([\s\S]*?)\1\s*\/?\s*>/i);
   if (!cspMatch) {
     violations.push('index.html is missing a Content-Security-Policy meta tag');
   } else {
-    const csp = cspMatch[1];
+    const csp = cspMatch[2];
     for (const directive of requiredCspDirectives) {
       if (!csp.includes(directive)) {
         violations.push(`index.html CSP is missing: ${directive}`);
