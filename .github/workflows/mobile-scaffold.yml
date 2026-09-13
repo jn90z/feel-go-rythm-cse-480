@@ -84,8 +84,13 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           working-directory: modern
           script: |
-            set -euo pipefail
-            APK=$(find src-tauri/gen/android/app/build/outputs/apk -name '*universal*debug*.apk' -o -name '*debug*.apk' | head -n 1)
+            set -eu
+            trap 'adb logcat -d -t 1000 > android-smoke-logcat.txt 2>/dev/null || true' EXIT
+            APK=$(find src-tauri/gen/android/app/build/outputs/apk -type f \( -name '*universal*debug*.apk' -o -name '*debug*.apk' \) | head -n 1)
+            if [ -z "$APK" ]; then
+              echo "ERROR: No debug APK found."
+              exit 1
+            fi
             echo "Installing $APK"
             adb install -r "$APK"
             adb logcat -c
@@ -105,11 +110,6 @@ jobs:
               exit 1
             fi
             adb shell dumpsys activity activities | grep -m 1 com.jn90z.feelgorythm || true
-
-      - name: Upload Android smoke-test logcat
-        if: always()
-        shell: bash
-        run: adb logcat -d -t 1000 > android-smoke-logcat.txt || true
 
       - name: Upload Android smoke-test diagnostics
         if: always()
