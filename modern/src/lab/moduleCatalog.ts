@@ -42,10 +42,13 @@ const EXPLICIT_CATEGORY: Record<string, LabCategory> = {
   "page-replacement": "Operating Systems",
   networking: "Networking",
   "reliable-transport": "Networking",
+  "encryption-keys": "Networking",
+  "vpn-tunneling": "Networking",
   recursion: "Programming & Compilers",
   "call-stack": "Programming & Compilers",
   "recursion-call-stack": "Programming & Compilers",
-  "compiler-explorer": "Programming & Compilers"
+  "compiler-explorer": "Programming & Compilers",
+  "compression-zip": "Foundations"
 };
 
 export function getLabCategory(id: string, title = "", description = ""): LabCategory {
@@ -53,7 +56,7 @@ export function getLabCategory(id: string, title = "", description = ""): LabCat
   if (explicit) return explicit;
 
   const text = `${id} ${title} ${description}`.toLowerCase();
-  if (/network|packet|transport|tcp|udp|router/.test(text)) return "Networking";
+  if (/network|packet|transport|tcp|udp|router|vpn|encrypt|tls|tunnel/.test(text)) return "Networking";
   if (/cpu|schedule|memory|page|deadlock|thread|concurr|mutex|process/.test(text)) return "Operating Systems";
   if (/tree|avl|stack|queue|hash|structure|heap/.test(text)) return "Data Structures";
   if (/compiler|assembly|recursion|call stack|language/.test(text)) return "Programming & Compilers";
