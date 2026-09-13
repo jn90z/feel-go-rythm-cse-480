@@ -24,6 +24,19 @@ describe("data protection learning models", () => {
     expect(runLengthEncode("x".repeat(500)).input).toHaveLength(160);
   });
 
+  it("does not split Unicode code points at the input limit", () => {
+    const source = `${"x".repeat(159)}😀😀`;
+    const clamped = clampLearningText(source);
+    const result = runLengthEncode(source);
+
+    expect(Array.from(clamped)).toHaveLength(160);
+    expect(clamped.endsWith("😀")).toBe(true);
+    expect(clamped).not.toContain("�");
+    expect(result.input).toBe(clamped);
+    expect(result.decoded).toBe(clamped);
+    expect(result.reversible).toBe(true);
+  });
+
   it("counts UTF-8 bytes rather than JavaScript characters", () => {
     const result = runLengthEncode("é");
     expect(result.inputBytes).toBe(2);
