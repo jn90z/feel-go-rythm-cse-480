@@ -1,0 +1,135 @@
+.lab-card-featured {
+  border-color: color-mix(in srgb, #f0a84a 55%, #334155);
+}
+
+.complexity-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(230px, .8fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.complexity-chart-panel,
+.complexity-side,
+.complexity-explainer {
+  min-width: 0;
+}
+
+.complexity-chart-header p {
+  margin: 4px 0 0;
+  color: #9ca9bc;
+  font-size: .9rem;
+}
+
+.complexity-chart {
+  width: 100%;
+  height: auto;
+  display: block;
+  margin-top: 8px;
+}
+
+.complexity-axis,
+.complexity-grid-line {
+  fill: none;
+  stroke: #536176;
+}
+
+.complexity-axis {
+  stroke-width: 2;
+}
+
+.complexity-grid-line {
+  stroke-width: 1;
+  opacity: .35;
+  stroke-dasharray: 5 7;
+}
+
+.complexity-axis-text,
+.complexity-marker-label {
+  fill: #aab6c8;
+  font-size: 12px;
+}
+
+.complexity-marker {
+  stroke: #f0a84a;
+  stroke-width: 2;
+  stroke-dasharray: 7 6;
+  opacity: .9;
+}
+
+.complexity-marker-label {
+  fill: #f0a84a;
+  font-weight: 700;
+}
+
+.complexity-curve {
+  fill: none;
+  stroke: #73839a;
+  stroke-width: 2.5;
+  opacity: .72;
+  transition: stroke-width 120ms ease, opacity 120ms ease;
+}
+
+.complexity-curve.selected {
+  stroke: #f0a84a;
+  stroke-width: 5;
+  opacity: 1;
+}
+
+.complexity-table {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.complexity-row {
+  width: 100%;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+  padding: 8px 10px;
+}
+
+.complexity-row span {
+  display: grid;
+  gap: 2px;
+}
+
+.complexity-row small {
+  color: #9ca9bc;
+}
+
+.complexity-row b {
+  font-variant-numeric: tabular-nums;
+}
+
+.complexity-row.selected {
+  outline: 2px solid #f0a84a;
+  background: rgba(240, 168, 74, .08);
+}
+
+.complexity-explainer {
+  margin-top: 14px;
+}
+
+.complexity-explainer p {
+  margin-bottom: 0;
+  line-height: 1.5;
+}
+
+@media (max-width: 820px) {
+  .complexity-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .complexity-chart-panel {
+    overflow-x: auto;
+  }
+
+  .complexity-chart {
+    min-width: 620px;
+  }
+}
