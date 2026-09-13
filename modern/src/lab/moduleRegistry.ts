@@ -44,15 +44,6 @@ export function listRegisteredLabModules(): RegisteredLabModule[] {
   return [...modules.values()];
 }
 
-export function makeIdempotentLabCleanup(cleanup: LabModuleCleanup): LabModuleCleanup {
-  let cleaned = false;
-  return () => {
-    if (cleaned) return;
-    cleaned = true;
-    cleanup();
-  };
-}
-
 export function runLabModuleCleanup(cleanup: LabModuleCleanup | null): LabModuleCleanupResult {
   if (!cleanup) return { error: null };
   try {
@@ -61,6 +52,16 @@ export function runLabModuleCleanup(cleanup: LabModuleCleanup | null): LabModule
   } catch (cause) {
     return { error: normalizeError(cause) };
   }
+}
+
+export function makeIdempotentLabCleanup(cleanup: LabModuleCleanup): LabModuleCleanup {
+  let cleaned = false;
+  return () => {
+    if (cleaned) return;
+    cleaned = true;
+    const result = runLabModuleCleanup(cleanup);
+    if (result.error) console.error("Learning lab cleanup failed:", result.error);
+  };
 }
 
 export function renderRegisteredLabModule(module: RegisteredLabModule, host: HTMLElement): LabModuleRenderResult {
