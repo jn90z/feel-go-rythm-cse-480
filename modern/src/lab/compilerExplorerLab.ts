@@ -1,5 +1,5 @@
 import "./compilerExplorerLab.css";
-import { registerLabModule } from "./moduleRegistry";
+import { registerLabModule, type LabModuleCleanup } from "./moduleRegistry";
 import {
   COMPILER_PRESETS,
   MAX_SOURCE_LENGTH,
@@ -26,7 +26,7 @@ function metricText(result: CompilerResult): string {
   return `${m.instructions} instructions · ${m.branches} branches · ${m.calls} calls · ${m.memoryOps} memory ops`;
 }
 
-function renderCompilerExplorer(host: HTMLElement): void {
+function renderCompilerExplorer(host: HTMLElement): LabModuleCleanup {
   host.innerHTML = `
     <div class="lab-module compiler-lab">
       <div class="lab-controls compiler-toolbar">
@@ -100,6 +100,18 @@ function renderCompilerExplorer(host: HTMLElement): void {
   const instruction = host.querySelector<HTMLElement>("#compilerInstruction")!;
   const comparisonPanel = host.querySelector<HTMLElement>("#compilerComparison")!;
   let requestGeneration = 0;
+  let activeRequest: AbortController | null = null;
+
+  const beginRequest = (): { generation: number; controller: AbortController } => {
+    activeRequest?.abort();
+    const controller = new AbortController();
+    activeRequest = controller;
+    return { generation: ++requestGeneration, controller };
+  };
+
+  const finishRequest = (generation: number, controller: AbortController): void => {
+    if (generation === requestGeneration && activeRequest === controller) activeRequest = null;
+  };
 
   COMPILER_PRESETS.forEach(item => {
     const option = document.createElement("option");
@@ -172,13 +184,13 @@ function renderCompilerExplorer(host: HTMLElement): void {
   };
 
   const compile = async () => {
-    const generation = ++requestGeneration;
+    const { generation, controller } = beginRequest();
     comparisonPanel.hidden = true;
     compileButton.disabled = true;
     compareButton.disabled = true;
     status.textContent = "Compiling with Compiler Explorer…";
     try {
-      const result = await compileWithCompilerExplorer(settings());
+      const result = await compileWithCompilerExplorer(settings(), controller.signal);
       if (generation !== requestGeneration) return;
       drawResult(result);
       status.textContent = result.exitCode === 0
@@ -188,6 +200,7 @@ function renderCompilerExplorer(host: HTMLElement): void {
       if (generation !== requestGeneration) return;
       status.textContent = error instanceof Error ? error.message : "Compilation failed.";
     } finally {
+      finishRequest(generation, controller);
       if (generation === requestGeneration) {
         compileButton.disabled = false;
         compareButton.disabled = false;
@@ -196,14 +209,14 @@ function renderCompilerExplorer(host: HTMLElement): void {
   };
 
   const compare = async () => {
-    const generation = ++requestGeneration;
+    const { generation, controller } = beginRequest();
     compileButton.disabled = true;
     compareButton.disabled = true;
     status.textContent = "Compiling the same source at -O0 and -O2…";
     try {
       const [left, right] = await Promise.all([
-        compileWithCompilerExplorer(settings("-O0")),
-        compileWithCompilerExplorer(settings("-O2"))
+        compileWithCompilerExplorer(settings("-O0"), controller.signal),
+        compileWithCompilerExplorer(settings("-O2"), controller.signal)
       ]);
       if (generation !== requestGeneration) return;
       const comparison = compareCompilerResults(left, right);
@@ -226,6 +239,7 @@ function renderCompilerExplorer(host: HTMLElement): void {
       if (generation !== requestGeneration) return;
       status.textContent = error instanceof Error ? error.message : "Comparison failed.";
     } finally {
+      finishRequest(generation, controller);
       if (generation === requestGeneration) {
         compileButton.disabled = false;
         compareButton.disabled = false;
@@ -238,6 +252,12 @@ function renderCompilerExplorer(host: HTMLElement): void {
   compileButton.addEventListener("click", compile);
   compareButton.addEventListener("click", compare);
   loadPreset();
+
+  return () => {
+    requestGeneration += 1;
+    activeRequest?.abort();
+    activeRequest = null;
+  };
 }
 
 registerLabModule({
