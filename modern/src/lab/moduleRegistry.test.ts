@@ -94,12 +94,15 @@ describe("Big Brain module registry", () => {
     expect(result.error?.message).toBe("cleanup failed");
   });
 
-  it("marks cleanup complete before invoking it so even a throwing cleanup cannot run twice", () => {
+  it("never lets a registered cleanup failure escape into navigation", () => {
     const cleanup = vi.fn(() => { throw new Error("boom"); });
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const guarded = makeIdempotentLabCleanup(cleanup);
 
-    expect(() => guarded()).toThrow("boom");
+    expect(() => guarded()).not.toThrow();
     expect(() => guarded()).not.toThrow();
     expect(cleanup).toHaveBeenCalledTimes(1);
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    errorSpy.mockRestore();
   });
 });
