@@ -44,8 +44,8 @@ registerLabModule({
           <span>Blue = start</span><span>Red = goal</span><span>Yellow = frontier</span><span>Blue haze = visited</span><span>Green = final path</span>
         </div>
         <div class="weighted-path-grid" data-wp-grid aria-label="Weighted terrain grid"></div>
-        <div class="weighted-path-metrics" data-wp-metrics></div>
-        <div class="weighted-path-explain" data-wp-explain>Paint terrain, then run a search. Entering grass costs 3 and mud costs 7, so the cheapest path may be longer in number of cells.</div>
+        <div class="weighted-path-metrics" data-wp-metrics aria-live="polite"></div>
+        <div class="weighted-path-explain" data-wp-explain aria-live="polite">Paint terrain, then run a search. Entering grass costs 3 and mud costs 7, so the cheapest path may be longer in number of cells.</div>
         <div class="weighted-path-compare" data-wp-compare-results hidden></div>
       </div>`;
 
@@ -61,6 +61,8 @@ registerLabModule({
     let result: WeightedSearchResult | null = null;
     let stepIndex = -1;
     let dragging = false;
+
+    const stopDragging = (): void => { dragging = false; };
 
     function setPaint(next: Terrain): void {
       paint = next;
@@ -140,6 +142,12 @@ registerLabModule({
           <p>Path cells: ${search.path.length}</p>
         </div>`;
       compareResults.innerHTML = card("Dijkstra", dijkstra) + card("A*", astar);
+
+      if (!Number.isFinite(dijkstra.totalCost) && !Number.isFinite(astar.totalCost)) {
+        explain.textContent = `Neither algorithm can reach the goal. Dijkstra visited ${dijkstra.visitedCount} cells and A* visited ${astar.visitedCount} before proving the route is blocked.`;
+        return;
+      }
+
       const sameCost = dijkstra.totalCost === astar.totalCost;
       explain.textContent = sameCost
         ? `Both algorithms found the same optimal cost. A* visited ${astar.visitedCount} cells versus Dijkstra's ${dijkstra.visitedCount}; the heuristic changes how much of the map must be explored, not the optimal answer.`
@@ -171,7 +179,7 @@ registerLabModule({
       const target = (event.target as HTMLElement).closest<HTMLElement>("[data-cell]");
       if (target) paintCell(Number(target.dataset.cell));
     });
-    window.addEventListener("pointerup", () => { dragging = false; });
+    window.addEventListener("pointerup", stopDragging);
 
     host.querySelector("[data-wp-run]")!.addEventListener("click", () => run(true));
     host.querySelector("[data-wp-step]")!.addEventListener("click", step);
@@ -197,7 +205,8 @@ registerLabModule({
     renderGrid();
 
     return () => {
-      dragging = false;
+      stopDragging();
+      window.removeEventListener("pointerup", stopDragging);
     };
   }
 });
