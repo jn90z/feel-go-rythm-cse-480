@@ -61,6 +61,17 @@ describe("CPU scheduling model", () => {
     ]);
   });
 
+  it("sanitizes process labels and clamps hostile or excessive scheduling inputs", () => {
+    const parsed = parseJobRows("<img_onerror=boom>, -3, 999\nnormal!, 9999, 2");
+    expect(parsed).toEqual([
+      { id: "img_onerrorboom", arrival: 0, burst: 100 },
+      { id: "normal", arrival: 500, burst: 2 }
+    ]);
+
+    const rr = simulateScheduling([{ id: "A", arrival: 0, burst: 1 }], "rr", 999);
+    expect(rr.quantum).toBe(20);
+  });
+
   it("compares all supported policies over the same workload", () => {
     const comparison = compareSchedulingPolicies(jobs, 2);
     expect(comparison.map(result => result.policy)).toEqual(["fcfs", "sjf", "srtf", "rr"]);
