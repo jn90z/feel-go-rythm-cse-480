@@ -60,14 +60,11 @@ export class GraphScene {
       !isAndroid
     );
 
-    if (isAndroid) {
-      this.engine.setHardwareScalingLevel(1.5);
-    }
+    if (isAndroid) this.engine.setHardwareScalingLevel(1.5);
 
     this.engine.onContextLostObservable.add(() => {
       console.warn("Babylon WebGL context lost; waiting for Android WebView to restore it.");
     });
-
     this.engine.onContextRestoredObservable.add(() => {
       console.info("Babylon WebGL context restored.");
       this.engine.resize();
@@ -75,21 +72,12 @@ export class GraphScene {
 
     this.scene = new Scene(this.engine);
     this.scene.clearColor.set(0.04, 0.05, 0.08, 1);
-
-    this.camera = new ArcRotateCamera(
-      "camera",
-      Math.PI / 2,
-      Math.PI / 3,
-      28,
-      Vector3.Zero(),
-      this.scene
-    );
+    this.camera = new ArcRotateCamera("camera", Math.PI / 2, Math.PI / 3, 28, Vector3.Zero(), this.scene);
     this.camera.attachControl(canvas, true);
     this.camera.lowerRadiusLimit = 8;
     this.camera.upperRadiusLimit = 80;
 
     new HemisphericLight("light", new Vector3(0, 1, 0), this.scene);
-
     this.ground = MeshBuilder.CreateGround("ground", { width: 60, height: 60 }, this.scene);
     const groundMat = new StandardMaterial("groundMat", this.scene);
     groundMat.diffuseColor = new Color3(0.08, 0.1, 0.14);
@@ -127,6 +115,21 @@ export class GraphScene {
     this.vertexIndex++;
   }
 
+  setVertexPosition(id: VertexId, x: number, z: number): void {
+    const mesh = this.vertexMeshes.get(id);
+    if (!mesh) return;
+    mesh.position.x = x;
+    mesh.position.z = z;
+    this.updateConnectedEdges(id);
+  }
+
+  distanceBetween(a: VertexId, b: VertexId): number {
+    const from = this.vertexMeshes.get(a);
+    const to = this.vertexMeshes.get(b);
+    if (!from || !to) return 0;
+    return Vector3.Distance(from.position, to.position);
+  }
+
   addEdge(edge: Edge): void {
     if (this.edgeMeshes.has(edge.id)) return;
 
@@ -148,8 +151,7 @@ export class GraphScene {
 
   updateEdgeWeight(edge: Edge): void {
     this.edges.set(edge.id, edge);
-    const old = this.edgeLabels.get(edge.id);
-    old?.dispose();
+    this.edgeLabels.get(edge.id)?.dispose();
     const label = this.createTextPlane(`edge-label-${edge.id}`, String(edge.weight), 1.5, 0.65);
     label.isPickable = false;
     this.edgeLabels.set(edge.id, label);
@@ -183,17 +185,10 @@ export class GraphScene {
     for (const [id, mesh] of this.vertexMeshes) {
       const mat = mesh.material as StandardMaterial;
       switch (states.get(id) ?? "default") {
-        case "frontier":
-          mat.diffuseColor = new Color3(1, 0.62, 0.12);
-          break;
-        case "active":
-          mat.diffuseColor = new Color3(1, 0.22, 0.22);
-          break;
-        case "visited":
-          mat.diffuseColor = new Color3(0.24, 0.78, 0.38);
-          break;
-        default:
-          mat.diffuseColor = new Color3(0.15, 0.65, 1);
+        case "frontier": mat.diffuseColor = new Color3(1, 0.62, 0.12); break;
+        case "active": mat.diffuseColor = new Color3(1, 0.22, 0.22); break;
+        case "visited": mat.diffuseColor = new Color3(0.24, 0.78, 0.38); break;
+        default: mat.diffuseColor = new Color3(0.15, 0.65, 1);
       }
     }
     this.applySelectionHighlight();
@@ -201,8 +196,7 @@ export class GraphScene {
 
   resetAlgorithmState(): void {
     for (const mesh of this.vertexMeshes.values()) {
-      const mat = mesh.material as StandardMaterial;
-      mat.diffuseColor = new Color3(0.15, 0.65, 1);
+      (mesh.material as StandardMaterial).diffuseColor = new Color3(0.15, 0.65, 1);
     }
     this.applySelectionHighlight();
   }
@@ -243,18 +237,16 @@ export class GraphScene {
   private applySelectionHighlight(): void {
     for (const [id, mesh] of this.vertexMeshes) {
       const mat = mesh.material as StandardMaterial;
-      mat.emissiveColor =
-        this.selected?.kind === "vertex" && this.selected.id === id
-          ? new Color3(0.15, 0.55, 0.9)
-          : Color3.Black();
+      mat.emissiveColor = this.selected?.kind === "vertex" && this.selected.id === id
+        ? new Color3(0.15, 0.55, 0.9)
+        : Color3.Black();
     }
 
     for (const [id, mesh] of this.edgeMeshes) {
       const mat = mesh.material as StandardMaterial;
-      mat.emissiveColor =
-        this.selected?.kind === "edge" && this.selected.id === id
-          ? new Color3(0.5, 0.4, 0.1)
-          : Color3.Black();
+      mat.emissiveColor = this.selected?.kind === "edge" && this.selected.id === id
+        ? new Color3(0.5, 0.4, 0.1)
+        : Color3.Black();
     }
   }
 
@@ -269,8 +261,6 @@ export class GraphScene {
           const id = metadata.id as VertexId;
           const shiftKey = Boolean(pointerEvent.shiftKey);
           this.setSelection({ kind: "vertex", id }, { shiftKey });
-
-          // Shift-click is reserved for the fast-connect gesture, so don't begin a drag.
           if (shiftKey) return;
 
           this.draggingVertexId = id;
@@ -311,11 +301,7 @@ export class GraphScene {
   }
 
   private pickGround(): Vector3 | null {
-    const pick = this.scene.pick(
-      this.scene.pointerX,
-      this.scene.pointerY,
-      mesh => mesh === this.ground
-    );
+    const pick = this.scene.pick(this.scene.pointerX, this.scene.pointerY, mesh => mesh === this.ground);
     return pick?.hit && pick.pickedPoint ? pick.pickedPoint.clone() : null;
   }
 
