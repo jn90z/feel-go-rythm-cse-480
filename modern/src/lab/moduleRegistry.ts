@@ -10,6 +10,11 @@ export interface RegisteredLabModule {
   render: (host: HTMLElement) => void | LabModuleCleanup;
 }
 
+export interface LabModuleRenderResult {
+  cleanup: LabModuleCleanup | null;
+  error: Error | null;
+}
+
 type RegistryListener = () => void;
 
 const modules = new Map<string, RegisteredLabModule>();
@@ -29,6 +34,15 @@ export function registerLabModule(module: RegisteredLabModule): void {
 
 export function listRegisteredLabModules(): RegisteredLabModule[] {
   return [...modules.values()];
+}
+
+export function renderRegisteredLabModule(module: RegisteredLabModule, host: HTMLElement): LabModuleRenderResult {
+  try {
+    return { cleanup: module.render(host) ?? null, error: null };
+  } catch (cause) {
+    const error = cause instanceof Error ? cause : new Error(String(cause));
+    return { cleanup: null, error };
+  }
 }
 
 export function subscribeToLabModules(listener: RegistryListener): LabModuleCleanup {
