@@ -42,6 +42,8 @@ export class GraphScene {
   private draggingVertexId: VertexId | null = null;
   private dragOffset = Vector3.Zero();
   private vertexIndex = 0;
+  private lastActiveVertexId: VertexId | null = null;
+  private traversalPulse: Mesh | null = null;
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -182,6 +184,17 @@ export class GraphScene {
   }
 
   applyAlgorithmState(states: Map<VertexId, VertexVisualState>): void {
+    const activeVertexId = [...states.entries()].find(([, state]) => state === "active")?.[0] ?? null;
+
+    if (activeVertexId && activeVertexId !== this.lastActiveVertexId) {
+      if (this.lastActiveVertexId && this.areConnected(this.lastActiveVertexId, activeVertexId)) {
+        this.animateTraversal(this.lastActiveVertexId, activeVertexId);
+      } else {
+        this.pulseVertex(activeVertexId);
+      }
+      this.lastActiveVertexId = activeVertexId;
+    }
+
     for (const [id, mesh] of this.vertexMeshes) {
       const mat = mesh.material as StandardMaterial;
       switch (states.get(id) ?? "default") {
@@ -195,13 +208,19 @@ export class GraphScene {
   }
 
   resetAlgorithmState(): void {
+    this.lastActiveVertexId = null;
+    this.traversalPulse?.dispose();
+    this.traversalPulse = null;
     for (const mesh of this.vertexMeshes.values()) {
+      mesh.scaling.setAll(1);
       (mesh.material as StandardMaterial).diffuseColor = new Color3(0.15, 0.65, 1);
     }
     this.applySelectionHighlight();
   }
 
   clear(): void {
+    this.traversalPulse?.dispose();
+    this.traversalPulse = null;
     for (const mesh of this.vertexLabels.values()) mesh.dispose();
     for (const mesh of this.edgeLabels.values()) mesh.dispose();
     for (const mesh of this.vertexMeshes.values()) mesh.dispose();
@@ -214,6 +233,80 @@ export class GraphScene {
     this.vertexIndex = 0;
     this.selected = null;
     this.draggingVertexId = null;
+    this.lastActiveVertexId = null;
+  }
+
+  private areConnected(a: VertexId, b: VertexId): boolean {
+    for (const edge of this.edges.values()) {
+      if ((edge.from === a && edge.to === b) || (edge.from === b && edge.to === a)) return true;
+    }
+    return false;
+  }
+
+  private animateTraversal(fromId: VertexId, toId: VertexId): void {
+    const from = this.vertexMeshes.get(fromId);
+    const to = this.vertexMeshes.get(toId);
+    if (!from || !to) return;
+
+    this.traversalPulse?.dispose();
+
+    const pulse = MeshBuilder.CreateSphere("algorithm-traversal-pulse", { diameter: 0.5, segments: 16 }, this.scene);
+    pulse.isPickable = false;
+    pulse.position = from.position.clone();
+
+    const material = new StandardMaterial("algorithm-traversal-pulse-material", this.scene);
+    material.diffuseColor = new Color3(1, 0.9, 0.25);
+    material.emissiveColor = new Color3(1, 0.65, 0.08);
+    material.disableLighting = true;
+    pulse.material = material;
+    this.traversalPulse = pulse;
+
+    const start = performance.now();
+    const duration = 700;
+    const observer = this.scene.onBeforeRenderObservable.add(() => {
+      if (pulse.isDisposed()) {
+        this.scene.onBeforeRenderObservable.remove(observer);
+        return;
+      }
+
+      const progress = Math.min(1, (performance.now() - start) / duration);
+      const eased = progress < 0.5
+        ? 2 * progress * progress
+        : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+      pulse.position = Vector3.Lerp(from.position, to.position, eased);
+      const scale = 1 + Math.sin(progress * Math.PI) * 0.7;
+      pulse.scaling.setAll(scale);
+
+      if (progress >= 1) {
+        this.scene.onBeforeRenderObservable.remove(observer);
+        pulse.dispose();
+        if (this.traversalPulse === pulse) this.traversalPulse = null;
+        this.pulseVertex(toId);
+      }
+    });
+  }
+
+  private pulseVertex(id: VertexId): void {
+    const mesh = this.vertexMeshes.get(id);
+    if (!mesh) return;
+
+    const start = performance.now();
+    const duration = 500;
+    const observer = this.scene.onBeforeRenderObservable.add(() => {
+      if (mesh.isDisposed()) {
+        this.scene.onBeforeRenderObservable.remove(observer);
+        return;
+      }
+
+      const progress = Math.min(1, (performance.now() - start) / duration);
+      const scale = 1 + Math.sin(progress * Math.PI) * 0.35;
+      mesh.scaling.setAll(scale);
+
+      if (progress >= 1) {
+        mesh.scaling.setAll(1);
+        this.scene.onBeforeRenderObservable.remove(observer);
+      }
+    });
   }
 
   private createTextPlane(name: string, text: string, width: number, height: number): Mesh {
