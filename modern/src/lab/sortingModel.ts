@@ -9,6 +9,14 @@ export interface SortStep {
   message: string;
 }
 
+export interface SortComparisonEntry {
+  algorithm: SortAlgorithm;
+  steps: SortStep[];
+  totalSteps: number;
+  comparisons: number;
+  writes: number;
+}
+
 const indices = (start: number, endExclusive: number): number[] =>
   Array.from({ length: Math.max(0, endExclusive - start) }, (_, index) => start + index);
 
@@ -175,4 +183,19 @@ export function buildSortSteps(input: number[], algorithm: SortAlgorithm): SortS
   for (let i = 0; i < a.length; i++) finalized.add(i);
   push([], "Sorted — every position is final.");
   return steps;
+}
+
+export function buildSortComparison(input: number[], algorithms: SortAlgorithm[]): SortComparisonEntry[] {
+  const uniqueAlgorithms = [...new Set(algorithms)].slice(0, 6);
+  return uniqueAlgorithms.map(algorithm => {
+    const steps = buildSortSteps(input, algorithm);
+    const finalStep = steps[steps.length - 1];
+    return {
+      algorithm,
+      steps,
+      totalSteps: Math.max(0, steps.length - 1),
+      comparisons: finalStep.comparisons,
+      writes: finalStep.writes
+    };
+  });
 }
