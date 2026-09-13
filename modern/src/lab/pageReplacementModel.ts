@@ -60,15 +60,15 @@ export function simulatePageReplacement(references: number[], policy: PagePolicy
     let evicted: number | null = null;
     if (slot < 0) {
       if (policy === "fifo") {
-        slot = frames.reduce((best, value, candidate) => (loadedAt.get(value!)! < loadedAt.get(frames[best]!)! ? candidate : best), 0);
+        slot = frames.reduce<number>((best, value, candidate) => (loadedAt.get(value!)! < loadedAt.get(frames[best]!)! ? candidate : best), 0);
       } else if (policy === "lru") {
-        slot = frames.reduce((best, value, candidate) => (lastUsed.get(value!)! < lastUsed.get(frames[best]!)! ? candidate : best), 0);
+        slot = frames.reduce<number>((best, value, candidate) => (lastUsed.get(value!)! < lastUsed.get(frames[best]!)! ? candidate : best), 0);
       } else {
         const nextUse = (value: number): number => {
           const offset = refs.slice(index + 1).indexOf(value);
           return offset < 0 ? Number.POSITIVE_INFINITY : index + 1 + offset;
         };
-        slot = frames.reduce((best, value, candidate) => (nextUse(value!) > nextUse(frames[best]!) ? candidate : best), 0);
+        slot = frames.reduce<number>((best, value, candidate) => (nextUse(value!) > nextUse(frames[best]!) ? candidate : best), 0);
       }
       evicted = frames[slot];
       if (evicted !== null) {
