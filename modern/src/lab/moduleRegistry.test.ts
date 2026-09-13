@@ -2,8 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearLabModulesForTests,
   listRegisteredLabModules,
+  makeIdempotentLabCleanup,
   registerLabModule,
   renderRegisteredLabModule,
+  runLabModuleCleanup,
   subscribeToLabModules
 } from "./moduleRegistry";
 
@@ -23,12 +25,13 @@ describe("Big Brain module registry", () => {
       .toThrow("already registered");
   });
 
-  it("notifies subscribers and supports unsubscribe", () => {
+  it("notifies subscribers and supports idempotent unsubscribe", () => {
     const listener = vi.fn();
     const unsubscribe = subscribeToLabModules(listener);
     registerLabModule({ id: "alpha", icon: "A", title: "Alpha", description: "First", render: () => undefined });
     expect(listener).toHaveBeenCalledTimes(1);
 
+    unsubscribe();
     unsubscribe();
     registerLabModule({ id: "beta", icon: "B", title: "Beta", description: "Second", render: () => undefined });
     expect(listener).toHaveBeenCalledTimes(1);
@@ -53,7 +56,7 @@ describe("Big Brain module registry", () => {
     expect(result.error?.message).toBe("boom");
   });
 
-  it("preserves cleanup callbacks from successful module renders", () => {
+  it("wraps successful cleanup callbacks so duplicate lifecycle signals only clean once", () => {
     const cleanup = vi.fn();
     const module = {
       id: "clean",
@@ -65,7 +68,10 @@ describe("Big Brain module registry", () => {
 
     const result = renderRegisteredLabModule(module, {} as HTMLElement);
     expect(result.error).toBeNull();
-    expect(result.cleanup).toBe(cleanup);
+    expect(result.cleanup).not.toBeNull();
+    result.cleanup?.();
+    result.cleanup?.();
+    expect(cleanup).toHaveBeenCalledTimes(1);
   });
 
   it("normalizes non-Error render failures", () => {
@@ -80,5 +86,20 @@ describe("Big Brain module registry", () => {
     const result = renderRegisteredLabModule(broken, {} as HTMLElement);
     expect(result.error).toBeInstanceOf(Error);
     expect(result.error?.message).toBe("bad module");
+  });
+
+  it("isolates cleanup failures and normalizes thrown values", () => {
+    const result = runLabModuleCleanup(() => { throw "cleanup failed"; });
+    expect(result.error).toBeInstanceOf(Error);
+    expect(result.error?.message).toBe("cleanup failed");
+  });
+
+  it("marks cleanup complete before invoking it so even a throwing cleanup cannot run twice", () => {
+    const cleanup = vi.fn(() => { throw new Error("boom"); });
+    const guarded = makeIdempotentLabCleanup(cleanup);
+
+    expect(() => guarded()).toThrow("boom");
+    expect(() => guarded()).not.toThrow();
+    expect(cleanup).toHaveBeenCalledTimes(1);
   });
 });
