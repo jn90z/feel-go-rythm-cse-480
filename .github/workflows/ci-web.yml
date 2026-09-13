@@ -7,10 +7,12 @@ on:
       - modern-rewrite
       - big-brain
       - rouge-test
+      - learning-lab-ux
   pull_request:
     branches:
       - modern-rewrite
       - big-brain
+      - rouge-test
   workflow_dispatch:
 
 permissions:
