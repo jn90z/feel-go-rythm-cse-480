@@ -1,0 +1,124 @@
+.avl-lab {
+  display: grid;
+  gap: 14px;
+}
+
+.avl-controls,
+.avl-metrics,
+.avl-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: end;
+}
+
+.avl-controls label {
+  display: grid;
+  gap: 5px;
+  min-width: min(100%, 320px);
+  flex: 1 1 260px;
+}
+
+.avl-controls input {
+  width: 100%;
+}
+
+.avl-metrics > span,
+.avl-legend > span {
+  padding: 7px 10px;
+  border: 1px solid #313a49;
+  border-radius: 999px;
+  background: #151b25;
+  font-size: 0.86rem;
+}
+
+.avl-compare-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.avl-tree-card {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #30394a;
+  border-radius: 14px;
+  background: #10151e;
+}
+
+.avl-tree-card h3 {
+  margin: 0 0 4px;
+}
+
+.avl-tree-card p {
+  margin: 0 0 8px;
+  color: #aeb9ca;
+  font-size: 0.9rem;
+}
+
+.avl-tree-svg {
+  width: 100%;
+  min-height: 320px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #0d121a, #111925);
+}
+
+.avl-tree-svg .edge {
+  stroke: #54647d;
+  stroke-width: 2.5;
+}
+
+.avl-tree-svg .node {
+  fill: #243349;
+  stroke: #8fa6c7;
+  stroke-width: 2;
+}
+
+.avl-tree-svg .recent {
+  fill: #7a4a13;
+  stroke: #ffc56a;
+}
+
+.avl-tree-svg text {
+  fill: #fff;
+  font-size: 14px;
+  font-weight: 650;
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+
+.avl-explanation {
+  padding: 12px 14px;
+  border-left: 4px solid #f0a84a;
+  border-radius: 8px;
+  background: #161c27;
+  line-height: 1.45;
+}
+
+.avl-rotation-log {
+  display: grid;
+  gap: 6px;
+  max-height: 160px;
+  overflow: auto;
+}
+
+.avl-rotation-log div {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #121923;
+  border: 1px solid #2d394b;
+}
+
+@media (max-width: 820px) {
+  .avl-compare-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .avl-tree-svg {
+    min-height: 250px;
+  }
+
+  .avl-controls button {
+    min-height: 44px;
+  }
+}
