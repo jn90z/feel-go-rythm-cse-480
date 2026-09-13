@@ -15,10 +15,18 @@ export interface WeightedGrid {
   goal: number;
 }
 
+export interface WeightedCandidateScore {
+  index: number;
+  pathCost: number;
+  heuristic: number;
+  priority: number;
+}
+
 export interface WeightedSearchStep {
   current: number;
   visited: number[];
   frontier: number[];
+  nextCandidates: WeightedCandidateScore[];
   costs: number[];
   message: string;
 }
@@ -33,10 +41,12 @@ export interface WeightedSearchResult {
 }
 
 export function createWeightedGrid(rows = 10, cols = 14): WeightedGrid {
-  const size = rows * cols;
+  const safeRows = Number.isFinite(rows) ? Math.max(1, Math.min(50, Math.floor(rows))) : 10;
+  const safeCols = Number.isFinite(cols) ? Math.max(1, Math.min(50, Math.floor(cols))) : 14;
+  const size = safeRows * safeCols;
   return {
-    rows,
-    cols,
+    rows: safeRows,
+    cols: safeCols,
     terrain: Array<Terrain>(size).fill("road"),
     start: 0,
     goal: size - 1
@@ -62,12 +72,23 @@ export function neighbors(grid: WeightedGrid, index: number): number[] {
     .filter(next => grid.terrain[next] !== "wall");
 }
 
-function heuristic(grid: WeightedGrid, index: number): number {
+export function manhattanDistance(grid: WeightedGrid, index: number): number {
   const row = Math.floor(index / grid.cols);
   const col = index % grid.cols;
   const goalRow = Math.floor(grid.goal / grid.cols);
   const goalCol = grid.goal % grid.cols;
   return Math.abs(row - goalRow) + Math.abs(col - goalCol);
+}
+
+export function candidateScore(
+  grid: WeightedGrid,
+  algorithm: WeightedSearchAlgorithm,
+  costs: number[],
+  index: number
+): WeightedCandidateScore {
+  const pathCost = costs[index] ?? Number.POSITIVE_INFINITY;
+  const heuristic = algorithm === "astar" ? manhattanDistance(grid, index) : 0;
+  return { index, pathCost, heuristic, priority: pathCost + heuristic };
 }
 
 function reconstructPath(cameFrom: Map<number, number>, start: number, goal: number): number[] {
@@ -103,7 +124,7 @@ export function runWeightedSearch(grid: WeightedGrid, algorithm: WeightedSearchA
     let current = -1;
     let bestScore = Number.POSITIVE_INFINITY;
     for (const candidate of frontier) {
-      const score = costs[candidate] + (algorithm === "astar" ? heuristic(grid, candidate) : 0);
+      const score = candidateScore(grid, algorithm, costs, candidate).priority;
       if (score < bestScore || (score === bestScore && candidate < current)) {
         bestScore = score;
         current = candidate;
@@ -115,10 +136,27 @@ export function runWeightedSearch(grid: WeightedGrid, algorithm: WeightedSearchA
     closed.add(current);
     visited.push(current);
 
+    if (current !== grid.goal) {
+      for (const next of neighbors(grid, current)) {
+        if (closed.has(next)) continue;
+        const nextCost = costs[current] + terrainCost(grid.terrain[next]);
+        if (nextCost < costs[next]) {
+          costs[next] = nextCost;
+          cameFrom.set(next, current);
+          frontier.add(next);
+        }
+      }
+    }
+
+    const nextCandidates = [...frontier]
+      .map(index => candidateScore(grid, algorithm, costs, index))
+      .sort((left, right) => left.priority - right.priority || left.index - right.index);
+
     steps.push({
       current,
       visited: [...visited],
       frontier: [...frontier],
+      nextCandidates,
       costs: [...costs],
       message: current === grid.goal
         ? `Reached the goal with accumulated cost ${costs[current]}.`
@@ -126,16 +164,6 @@ export function runWeightedSearch(grid: WeightedGrid, algorithm: WeightedSearchA
     });
 
     if (current === grid.goal) break;
-
-    for (const next of neighbors(grid, current)) {
-      if (closed.has(next)) continue;
-      const nextCost = costs[current] + terrainCost(grid.terrain[next]);
-      if (nextCost < costs[next]) {
-        costs[next] = nextCost;
-        cameFrom.set(next, current);
-        frontier.add(next);
-      }
-    }
   }
 
   const path = reconstructPath(cameFrom, grid.start, grid.goal);
