@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { createWeightedGrid, runWeightedSearch, terrainCost, type WeightedGrid } from "./weightedPathfindingModel";
+import {
+  candidateScore,
+  createWeightedGrid,
+  manhattanDistance,
+  runWeightedSearch,
+  terrainCost,
+  type WeightedGrid
+} from "./weightedPathfindingModel";
 
 describe("weighted pathfinding model", () => {
   it("uses the configured terrain costs", () => {
@@ -7,6 +14,12 @@ describe("weighted pathfinding model", () => {
     expect(terrainCost("grass")).toBe(3);
     expect(terrainCost("mud")).toBe(7);
     expect(terrainCost("wall")).toBe(Number.POSITIVE_INFINITY);
+  });
+
+  it("bounds generated grid dimensions", () => {
+    expect(createWeightedGrid(0, 999).rows).toBe(1);
+    expect(createWeightedGrid(0, 999).cols).toBe(50);
+    expect(createWeightedGrid(Number.NaN, Number.NaN).terrain).toHaveLength(140);
   });
 
   it("prefers a longer cheap route over a short muddy route", () => {
@@ -53,5 +66,26 @@ describe("weighted pathfinding model", () => {
     expect(result.steps[0].message).toContain("A*");
     expect(result.steps.at(-1)?.current).toBe(grid.goal);
     expect(result.steps.at(-1)?.message).toContain("Reached the goal");
+  });
+
+  it("exposes the next frontier candidates in priority order", () => {
+    const grid = createWeightedGrid(3, 3);
+    const result = runWeightedSearch(grid, "dijkstra");
+    const first = result.steps[0];
+
+    expect(first.current).toBe(grid.start);
+    expect(first.nextCandidates.map(candidate => candidate.index)).toEqual([1, 3]);
+    expect(first.nextCandidates.every(candidate => candidate.priority === 1)).toBe(true);
+    expect(result.steps[1].current).toBe(first.nextCandidates[0].index);
+  });
+
+  it("shows how A* combines path cost and Manhattan heuristic", () => {
+    const grid = createWeightedGrid(3, 4);
+    const costs = Array(grid.terrain.length).fill(Number.POSITIVE_INFINITY);
+    costs[1] = 2;
+
+    expect(manhattanDistance(grid, 1)).toBe(4);
+    expect(candidateScore(grid, "dijkstra", costs, 1)).toEqual({ index: 1, pathCost: 2, heuristic: 0, priority: 2 });
+    expect(candidateScore(grid, "astar", costs, 1)).toEqual({ index: 1, pathCost: 2, heuristic: 4, priority: 6 });
   });
 });
