@@ -30,7 +30,7 @@ export interface VisibilityRow {
 const MAX_TEXT = 160;
 
 export function clampLearningText(value: string): string {
-  return value.slice(0, MAX_TEXT);
+  return Array.from(value).slice(0, MAX_TEXT).join("");
 }
 
 function byteLength(value: string): number {
