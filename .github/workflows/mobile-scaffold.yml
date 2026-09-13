@@ -82,27 +82,39 @@ jobs:
           profile: pixel_6
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          working-directory: modern
           script: |
             set -eu
-            trap 'adb logcat -d -t 1000 > android-smoke-logcat.txt 2>/dev/null || true' EXIT
-            APK=$(find src-tauri/gen/android/app/build/outputs/apk -type f \( -name '*universal*debug*.apk' -o -name '*debug*.apk' \) | head -n 1)
+            LOGCAT="$GITHUB_WORKSPACE/modern/android-smoke-logcat.txt"
+            trap 'adb logcat -d -t 1000 > "$LOGCAT" 2>/dev/null || true' EXIT
+            echo "Smoke-test working directory: $(pwd)"
+            adb wait-for-device
+
+            APK=$(find "$GITHUB_WORKSPACE/modern/src-tauri/gen/android/app/build/outputs/apk" -type f -name '*universal*debug*.apk' | head -n 1)
             if [ -z "$APK" ]; then
+              APK=$(find "$GITHUB_WORKSPACE/modern/src-tauri/gen/android/app/build/outputs/apk" -type f -name '*debug*.apk' | head -n 1)
+            fi
+            if [ -z "$APK" ] || [ ! -f "$APK" ]; then
               echo "ERROR: No debug APK found."
+              find "$GITHUB_WORKSPACE/modern/src-tauri/gen/android/app/build/outputs" -maxdepth 6 -type f -print || true
               exit 1
             fi
+
             echo "Installing $APK"
             adb install -r "$APK"
+            adb shell pm path com.jn90z.feelgorythm
             adb logcat -c
             adb shell am force-stop com.jn90z.feelgorythm || true
+            echo "Launching com.jn90z.feelgorythm"
             adb shell monkey -p com.jn90z.feelgorythm -c android.intent.category.LAUNCHER 1
             sleep 12
+
             PID=$(adb shell pidof com.jn90z.feelgorythm | tr -d '\r')
             if [ -z "$PID" ]; then
               echo "ERROR: Feel-go-Rythm did not remain running after launch."
               adb logcat -d -t 500
               exit 1
             fi
+
             echo "Feel-go-Rythm is alive after launch (PID $PID)."
             if adb logcat -d -t 500 | grep -E 'FATAL EXCEPTION|Fatal signal|Process: com\.jn90z\.feelgorythm.*has died'; then
               echo "ERROR: Fatal Android crash detected in logcat."
