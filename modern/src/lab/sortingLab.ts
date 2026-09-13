@@ -13,6 +13,7 @@ import {
   rankSortWork,
   type SortWorkRanking
 } from "./sortingLearning";
+import { describeSortInput, generateSortInput, type SortInputShape } from "./sortingInputs";
 
 const ALGORITHMS: Array<{ value: SortAlgorithm; label: string }> = [
   { value: "bubble", label: "Bubble" },
@@ -23,17 +24,16 @@ const ALGORITHMS: Array<{ value: SortAlgorithm; label: string }> = [
   { value: "heap", label: "Heap" }
 ];
 
+const INPUT_SHAPES: Array<{ value: SortInputShape; label: string }> = [
+  { value: "random", label: "Random" },
+  { value: "sorted", label: "Already sorted" },
+  { value: "reverse", label: "Reverse sorted" },
+  { value: "nearly-sorted", label: "Nearly sorted" },
+  { value: "duplicates", label: "Many duplicates" }
+];
+
 const labelFor = (algorithm: SortAlgorithm): string =>
   ALGORITHMS.find(item => item.value === algorithm)?.label ?? algorithm;
-
-function shuffle(count: number): number[] {
-  const values = Array.from({ length: count }, (_, index) => index + 1);
-  for (let i = values.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [values[i], values[j]] = [values[j], values[i]];
-  }
-  return values;
-}
 
 function clampCount(value: string): number {
   const parsed = Number.parseInt(value, 10);
@@ -175,8 +175,9 @@ function renderSorting(host: HTMLElement): LabModuleCleanup {
     <div class="lab-module sorting-lab">
       <div class="lab-controls">
         <label>Algorithm<select id="sortingAlgorithm"></select></label>
+        <label>Input<select id="sortingInputShape"></select></label>
         <label>Items<input id="sortingCount" type="number" min="6" max="60" value="24" /></label>
-        <button id="sortingShuffle" type="button">Shuffle</button>
+        <button id="sortingShuffle" type="button">New Input</button>
         <button id="sortingPrev" type="button">Previous</button>
         <button id="sortingPlay" type="button">Play</button>
         <button id="sortingNext" type="button">Next</button>
@@ -184,6 +185,7 @@ function renderSorting(host: HTMLElement): LabModuleCleanup {
       <div class="lab-meta" aria-live="polite">
         <span id="sortingStep"></span><span id="sortingComparisons"></span><span id="sortingWrites"></span><span id="sortingFinalized"></span>
       </div>
+      <p id="sortingInputLesson" class="lab-note"></p>
       <p id="sortingMessage" class="sorting-message" aria-live="polite"></p>
       <div class="lab-visual sorting-visual">
         <div id="sortingBars" class="sorting-bars"></div>
@@ -191,7 +193,7 @@ function renderSorting(host: HTMLElement): LabModuleCleanup {
 
       <section class="lab-panel sorting-compare-panel">
         <div class="sorting-compare-heading">
-          <div><strong>Compare algorithms</strong><p class="lab-note">Every selected algorithm gets the exact same shuffled array. Results include a winner, race timing, work metrics, and Big-O learning notes.</p></div>
+          <div><strong>Compare algorithms</strong><p class="lab-note">Every selected algorithm gets the exact same input. Change the input shape above, then compare again to see how data order changes the amount of work.</p></div>
           <div class="sorting-preset-buttons">
             <button id="sortingSelectAll" type="button">All 6</button>
             <button id="sortingClassic" type="button">Bubble vs Merge</button>
@@ -216,6 +218,7 @@ function renderSorting(host: HTMLElement): LabModuleCleanup {
     </div>`;
 
   const algorithm = host.querySelector<HTMLSelectElement>("#sortingAlgorithm")!;
+  const inputShape = host.querySelector<HTMLSelectElement>("#sortingInputShape")!;
   const count = host.querySelector<HTMLInputElement>("#sortingCount")!;
   const bars = host.querySelector<HTMLElement>("#sortingBars")!;
   const visual = host.querySelector<HTMLElement>(".sorting-visual")!;
@@ -244,7 +247,14 @@ function renderSorting(host: HTMLElement): LabModuleCleanup {
     compareChoices.append(label);
   });
 
-  let values = shuffle(24);
+  INPUT_SHAPES.forEach(item => {
+    const option = document.createElement("option");
+    option.value = item.value;
+    option.textContent = item.label;
+    inputShape.append(option);
+  });
+
+  let values = generateSortInput(24, "random");
   let steps = buildSortSteps(values, "bubble");
   let index = 0;
   let timer: number | null = null;
@@ -265,6 +275,7 @@ function renderSorting(host: HTMLElement): LabModuleCleanup {
     host.querySelector<HTMLElement>("#sortingComparisons")!.textContent = `Comparisons: ${step.comparisons}`;
     host.querySelector<HTMLElement>("#sortingWrites")!.textContent = `Writes/swaps: ${step.writes}`;
     host.querySelector<HTMLElement>("#sortingFinalized")!.textContent = `Final positions: ${step.finalized.length}/${step.values.length}`;
+    host.querySelector<HTMLElement>("#sortingInputLesson")!.textContent = describeSortInput(inputShape.value as SortInputShape);
     host.querySelector<HTMLElement>("#sortingMessage")!.textContent = step.message;
   };
 
@@ -274,11 +285,11 @@ function renderSorting(host: HTMLElement): LabModuleCleanup {
     visual.hidden = false;
   };
 
-  const rebuild = (reshuffle = false) => {
+  const rebuild = (newInput = false) => {
     stop();
     const nextCount = clampCount(count.value);
     count.value = String(nextCount);
-    if (reshuffle || values.length !== nextCount) values = shuffle(nextCount);
+    if (newInput || values.length !== nextCount) values = generateSortInput(nextCount, inputShape.value as SortInputShape);
     steps = buildSortSteps(values, algorithm.value as SortAlgorithm);
     index = 0;
     exitComparison();
@@ -314,7 +325,8 @@ function renderSorting(host: HTMLElement): LabModuleCleanup {
     summary.hidden = true;
     raceView.replaceChildren();
     summary.replaceChildren();
-    compareStatus.textContent = `Running ${entries.length} algorithms on the same ${values.length}-item array.`;
+    const shapeLabel = INPUT_SHAPES.find(item => item.value === inputShape.value)?.label ?? inputShape.value;
+    compareStatus.textContent = `Running ${entries.length} algorithms on the same ${values.length}-item ${shapeLabel.toLowerCase()} input.`;
 
     const columns = entries.map((entry, traceIndex) => {
       const column = document.createElement("section");
@@ -352,7 +364,7 @@ function renderSorting(host: HTMLElement): LabModuleCleanup {
       drawRace();
       renderComparisonSummary(summary, entries, elapsedMs);
       summary.hidden = false;
-      compareStatus.textContent = `Comparison complete for ${entries.length} algorithms. Winner and complexity lessons are below.`;
+      compareStatus.textContent = `Comparison complete for ${entries.length} algorithms. Try another input shape to see whether the winner changes.`;
     };
 
     drawRace();
@@ -383,6 +395,7 @@ function renderSorting(host: HTMLElement): LabModuleCleanup {
     compareStatus.textContent = `${selected.length} algorithm${selected.length === 1 ? "" : "s"} selected.`;
   });
   algorithm.addEventListener("change", () => rebuild(false));
+  inputShape.addEventListener("change", () => rebuild(true));
   count.addEventListener("change", () => rebuild(true));
   play.addEventListener("click", () => {
     exitComparison();
@@ -406,6 +419,6 @@ registerLabModule({
   replacesLegacyId: "sorting",
   icon: "▂▆▃█",
   title: "Sorting",
-  description: "Animate six sorting algorithms, track provably final positions, compare exact-input winners, and learn Big-O, stability, memory, and scaling tradeoffs.",
+  description: "Animate six sorting algorithms, experiment with input order, compare exact-input winners, and learn Big-O, stability, memory, and scaling tradeoffs.",
   render: renderSorting
 });
