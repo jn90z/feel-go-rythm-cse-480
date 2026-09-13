@@ -11,7 +11,7 @@
       <aside class="toolbar">
         <h1>Feel-go-Rythm 2.0</h1>
 
-        <div class="panel-section">
+        <div class="panel-section graph-setup">
           <strong>Graph Setup</strong>
           <label for="graphPreset">Preset</label>
           <select id="graphPreset">
@@ -26,9 +26,11 @@
         </div>
 
         <button id="addVertex">Add Vertex</button>
+        <button id="connectMode" class="mobile-only" aria-pressed="false">Connect Mode</button>
         <button id="addEdge">Connect Selected</button>
         <button id="deleteSelected">Delete Selected</button>
         <button id="clearGraph">Clear Graph</button>
+        <button id="fullscreenGraph" class="mobile-only" aria-pressed="false">Full Screen Graph</button>
 
         <div class="panel-section edge-editor">
           <strong>Selected Edge</strong>
@@ -39,19 +41,28 @@
 
         <div class="help">
           <strong>Editor</strong>
-          <span>Click a vertex or edge to select it.</span>
+          <span>Click or tap a vertex or edge to select it.</span>
           <span>Drag vertices to move them.</span>
-          <span>Shift-click another vertex to connect instantly.</span>
+          <span class="desktop-help">Shift-click another vertex to connect instantly.</span>
+          <span class="mobile-help">Use Connect Mode, then tap two vertices.</span>
           <span>Select two vertices, then Connect Selected also works.</span>
           <span>Select an edge to edit its weight.</span>
         </div>
         <p id="status">Ready</p>
       </aside>
 
-      <main class="canvas-wrap"><canvas id="renderCanvas"></canvas></main>
+      <main class="canvas-wrap">
+        <canvas id="renderCanvas"></canvas>
+        <div id="mobileCanvasHint" class="mobile-canvas-hint mobile-only" aria-live="polite"></div>
+      </main>
 
-      <aside class="algorithm-panel">
-        <div class="panel-section">
+      <aside class="algorithm-panel mobile-collapsed" id="algorithmPanel">
+        <button id="mobileSheetToggle" class="mobile-sheet-handle mobile-only" type="button" aria-expanded="false">
+          <span class="grabber"></span>
+          Algorithm Controls
+        </button>
+
+        <div class="panel-section algorithm-setup">
           <label for="algorithmSelect">Algorithm</label>
           <select id="algorithmSelect">
             <option value="bfs">Breadth-First Search</option>
@@ -77,7 +88,7 @@
           <small>Slow ↔ Fast</small>
         </div>
 
-        <div class="panel-section">
+        <div class="panel-section algorithm-state">
           <div class="frontier-header"><strong id="frontierTitle">Queue</strong><span id="stepCounter">0 / 0</span></div>
           <div id="frontier" class="frontier"></div>
           <div id="distances" class="distance-grid"></div>
@@ -87,6 +98,15 @@
         <div class="panel-section code-section"><strong>Pseudocode</strong><pre id="pseudocode"></pre></div>
       </aside>
     </div>
+
+    <button id="exitFullscreenGraph" class="fullscreen-exit mobile-only" type="button">Show Controls</button>
+
+    <div id="runtimeError" class="runtime-error" hidden>
+      <strong>Feel-go-Rythm hit an error</strong>
+      <span id="runtimeErrorText"></span>
+    </div>
+
     <script type="module" src="/src/main.ts"></script>
+    <script type="module" src="/src/mobile.ts"></script>
   </body>
 </html>
