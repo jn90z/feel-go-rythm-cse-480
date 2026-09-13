@@ -40,7 +40,8 @@ const MAX_TIME = 500;
 export function normalizeJobs(input: SchedulingJob[]): SchedulingJob[] {
   const seen = new Map<string, number>();
   return input.slice(0, MAX_JOBS).map((job, index) => {
-    const base = job.id.trim() || `P${index + 1}`;
+    const cleaned = job.id.trim().replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 16);
+    const base = cleaned || `P${index + 1}`;
     const count = (seen.get(base) ?? 0) + 1;
     seen.set(base, count);
     return {
