@@ -7,6 +7,12 @@ import {
   type SortComparisonEntry,
   type SortStep
 } from "./sortingModel";
+import {
+  explainWorkWinner,
+  getSortLearningProfile,
+  rankSortWork,
+  type SortWorkRanking
+} from "./sortingLearning";
 
 const ALGORITHMS: Array<{ value: SortAlgorithm; label: string }> = [
   { value: "bubble", label: "Bubble" },
@@ -53,62 +59,115 @@ function renderBars(container: HTMLElement, step: SortStep, compact = false): vo
   });
 }
 
-function renderComparisonSummary(container: HTMLElement, entries: SortComparisonEntry[]): void {
+function appendCell(row: HTMLTableRowElement, text: string, best = false): void {
+  const cell = document.createElement("td");
+  cell.textContent = text;
+  if (best) cell.classList.add("best");
+  row.append(cell);
+}
+
+function renderComparisonSummary(
+  container: HTMLElement,
+  entries: SortComparisonEntry[],
+  elapsedMs: Map<SortAlgorithm, number>
+): void {
   container.replaceChildren();
   if (!entries.length) return;
 
-  const heading = document.createElement("strong");
-  heading.textContent = "Comparison results";
-  const note = document.createElement("p");
-  note.className = "lab-note";
-  note.textContent = "Lower counts mean less work for this exact input. Comparisons, writes, and visualization steps measure different kinds of cost, so there is not always one universal winner.";
+  const ranking = rankSortWork(entries);
+  const rankingByAlgorithm = new Map<SortAlgorithm, SortWorkRanking>(ranking.map(item => [item.entry.algorithm, item]));
+  const winner = document.createElement("div");
+  winner.className = "sorting-winner";
+  const winnerTitle = document.createElement("strong");
+  winnerTitle.textContent = "🏆 Overall winner for this input";
+  const winnerText = document.createElement("p");
+  winnerText.textContent = explainWorkWinner(ranking).replace(/\b(bubble|selection|insertion|merge|quick|heap)\b/g, name => `${labelFor(name as SortAlgorithm)} Sort`);
+  winner.append(winnerTitle, winnerText);
+
+  const timingNote = document.createElement("p");
+  timingNote.className = "lab-note sorting-timing-note";
+  timingNote.textContent = "Race time is visualization time: how long each animated trace took to reach its final step at the current playback rate. It is useful for seeing relative trace length, but it is not a CPU benchmark. Big-O describes how algorithmic work grows as n grows.";
+
+  const minComparisons = Math.min(...entries.map(entry => entry.comparisons));
+  const minWrites = Math.min(...entries.map(entry => entry.writes));
+  const minSteps = Math.min(...entries.map(entry => entry.totalSteps));
+  const finiteTimes = entries.map(entry => elapsedMs.get(entry.algorithm)).filter((value): value is number => Number.isFinite(value));
+  const minTime = finiteTimes.length ? Math.min(...finiteTimes) : Infinity;
 
   const tableWrap = document.createElement("div");
   tableWrap.className = "sorting-summary-scroll";
   const table = document.createElement("table");
-  table.className = "sorting-summary-table";
+  table.className = "sorting-summary-table sorting-results-table";
   const head = document.createElement("thead");
   const headRow = document.createElement("tr");
-  ["Algorithm", "Comparisons", "Writes", "Steps"].forEach(text => {
+  ["Algorithm", "Work score", "Comparisons", "Writes", "Steps", "Race time", "Avg Big-O", "Worst Big-O", "Space"].forEach(text => {
     const cell = document.createElement("th");
     cell.scope = "col";
     cell.textContent = text;
     headRow.append(cell);
   });
   head.append(headRow);
-
-  const minComparisons = Math.min(...entries.map(entry => entry.comparisons));
-  const minWrites = Math.min(...entries.map(entry => entry.writes));
-  const minSteps = Math.min(...entries.map(entry => entry.totalSteps));
   const body = document.createElement("tbody");
 
   entries.forEach(entry => {
+    const profile = getSortLearningProfile(entry.algorithm);
+    const work = rankingByAlgorithm.get(entry.algorithm)!;
+    const time = elapsedMs.get(entry.algorithm);
     const row = document.createElement("tr");
+    if (work.winner) row.classList.add("winner-row");
     const name = document.createElement("th");
     name.scope = "row";
-    name.textContent = labelFor(entry.algorithm);
+    name.textContent = `${labelFor(entry.algorithm)}${work.winner ? " 🏆" : ""}`;
     row.append(name);
-
-    const metrics = [
-      { value: entry.comparisons, best: entry.comparisons === minComparisons },
-      { value: entry.writes, best: entry.writes === minWrites },
-      { value: entry.totalSteps, best: entry.totalSteps === minSteps }
-    ];
-    metrics.forEach(metric => {
-      const cell = document.createElement("td");
-      cell.textContent = String(metric.value);
-      if (metric.best) {
-        cell.classList.add("best");
-        cell.setAttribute("aria-label", `${metric.value}, lowest in comparison`);
-      }
-      row.append(cell);
-    });
+    appendCell(row, String(work.workScore), work.winner);
+    appendCell(row, String(entry.comparisons), entry.comparisons === minComparisons);
+    appendCell(row, String(entry.writes), entry.writes === minWrites);
+    appendCell(row, String(entry.totalSteps), entry.totalSteps === minSteps);
+    appendCell(row, Number.isFinite(time) ? `${time!.toFixed(0)} ms` : "—", time === minTime);
+    appendCell(row, profile.averageTime);
+    appendCell(row, profile.worstTime);
+    appendCell(row, profile.space);
     body.append(row);
   });
 
   table.append(head, body);
   tableWrap.append(table);
-  container.append(heading, note, tableWrap);
+
+  const lessonHeading = document.createElement("strong");
+  lessonHeading.textContent = "Algorithm learning cards";
+  const cards = document.createElement("div");
+  cards.className = "sorting-learning-grid";
+  entries.forEach(entry => {
+    const profile = getSortLearningProfile(entry.algorithm);
+    const card = document.createElement("article");
+    card.className = "sorting-learning-card";
+    const title = document.createElement("h4");
+    title.textContent = `${labelFor(entry.algorithm)} Sort`;
+    const complexity = document.createElement("p");
+    complexity.className = "sorting-complexity-line";
+    complexity.textContent = `Best ${profile.bestTime} · Average ${profile.averageTime} · Worst ${profile.worstTime}`;
+    const traits = document.createElement("p");
+    traits.className = "lab-note";
+    traits.textContent = `Space ${profile.space} · ${profile.stable ? "Stable" : "Not stable"} · ${profile.inPlace ? "In-place" : "Uses auxiliary storage"}`;
+    const strengths = document.createElement("p");
+    strengths.textContent = profile.strengths;
+    const caution = document.createElement("p");
+    caution.className = "lab-note";
+    caution.textContent = profile.caution;
+    card.append(title, complexity, traits, strengths, caution);
+    cards.append(card);
+  });
+
+  const interpretation = document.createElement("div");
+  interpretation.className = "sorting-interpretation";
+  const interpretationTitle = document.createElement("strong");
+  interpretationTitle.textContent = "How to interpret the race";
+  const interpretationText = document.createElement("p");
+  interpretationText.className = "lab-note";
+  interpretationText.textContent = "A small input can let a quadratic algorithm look competitive. The work score explains this particular array; Big-O predicts growth across much larger inputs. Stable means equal-valued records keep their original relative order. In-place means the algorithm uses little extra storage beyond the array itself.";
+  interpretation.append(interpretationTitle, interpretationText);
+
+  container.append(winner, timingNote, tableWrap, lessonHeading, cards, interpretation);
 }
 
 function renderSorting(host: HTMLElement): LabModuleCleanup {
@@ -132,7 +191,7 @@ function renderSorting(host: HTMLElement): LabModuleCleanup {
 
       <section class="lab-panel sorting-compare-panel">
         <div class="sorting-compare-heading">
-          <div><strong>Compare algorithms</strong><p class="lab-note">Every selected algorithm gets the exact same shuffled array.</p></div>
+          <div><strong>Compare algorithms</strong><p class="lab-note">Every selected algorithm gets the exact same shuffled array. Results include a winner, race timing, work metrics, and Big-O learning notes.</p></div>
           <div class="sorting-preset-buttons">
             <button id="sortingSelectAll" type="button">All 6</button>
             <button id="sortingClassic" type="button">Bubble vs Merge</button>
@@ -147,7 +206,7 @@ function renderSorting(host: HTMLElement): LabModuleCleanup {
       </section>
 
       <div id="sortingRaceView" class="sorting-race" hidden></div>
-      <section id="sortingSummary" class="lab-panel" hidden></section>
+      <section id="sortingSummary" class="lab-panel sorting-summary" hidden></section>
 
       <section class="lab-panel">
         <strong>What the colors mean</strong>
@@ -248,6 +307,8 @@ function renderSorting(host: HTMLElement): LabModuleCleanup {
 
     const entries = buildSortComparison(values, selected);
     const positions = entries.map(() => 0);
+    const elapsedMs = new Map<SortAlgorithm, number>();
+    const startedAt = performance.now();
     visual.hidden = true;
     raceView.hidden = false;
     summary.hidden = true;
@@ -260,13 +321,17 @@ function renderSorting(host: HTMLElement): LabModuleCleanup {
       column.className = "sorting-race-column";
       const heading = document.createElement("h4");
       heading.textContent = `${labelFor(entry.algorithm)} Sort`;
+      const profile = getSortLearningProfile(entry.algorithm);
+      const bigO = document.createElement("div");
+      bigO.className = "sorting-race-bigo";
+      bigO.textContent = `Avg ${profile.averageTime} · Worst ${profile.worstTime}`;
       const miniBars = document.createElement("div");
       miniBars.className = "sorting-mini-bars";
       const meta = document.createElement("p");
       meta.className = "lab-note sorting-race-meta";
       const message = document.createElement("p");
       message.className = "sorting-race-message";
-      column.append(heading, miniBars, meta, message);
+      column.append(heading, bigO, miniBars, meta, message);
       raceView.append(column);
       return { miniBars, meta, message, traceIndex };
     });
@@ -276,7 +341,8 @@ function renderSorting(host: HTMLElement): LabModuleCleanup {
       const step = entry.steps[positions[traceIndex]];
       renderBars(miniBars, step, true);
       const done = positions[traceIndex] >= entry.steps.length - 1;
-      meta.textContent = `${positions[traceIndex] + 1}/${entry.steps.length} · ${step.comparisons} comparisons · ${step.writes} writes · ${step.finalized.length}/${step.values.length} final${done ? " · done" : ""}`;
+      const elapsed = elapsedMs.get(entry.algorithm);
+      meta.textContent = `${positions[traceIndex] + 1}/${entry.steps.length} · ${step.comparisons} comparisons · ${step.writes} writes · ${step.finalized.length}/${step.values.length} final${done ? ` · done in ${elapsed?.toFixed(0) ?? "0"} ms` : ""}`;
       message.textContent = step.message;
     });
 
@@ -284,15 +350,21 @@ function renderSorting(host: HTMLElement): LabModuleCleanup {
       if (raceTimer !== null) window.clearInterval(raceTimer);
       raceTimer = null;
       drawRace();
-      renderComparisonSummary(summary, entries);
+      renderComparisonSummary(summary, entries, elapsedMs);
       summary.hidden = false;
-      compareStatus.textContent = `Comparison complete for ${entries.length} algorithms.`;
+      compareStatus.textContent = `Comparison complete for ${entries.length} algorithms. Winner and complexity lessons are below.`;
     };
 
     drawRace();
     raceTimer = window.setInterval(() => {
       positions.forEach((position, traceIndex) => {
-        if (position < entries[traceIndex].steps.length - 1) positions[traceIndex]++;
+        const entry = entries[traceIndex];
+        if (position < entry.steps.length - 1) {
+          positions[traceIndex]++;
+          if (positions[traceIndex] >= entry.steps.length - 1 && !elapsedMs.has(entry.algorithm)) {
+            elapsedMs.set(entry.algorithm, performance.now() - startedAt);
+          }
+        }
       });
       drawRace();
       if (positions.every((position, traceIndex) => position >= entries[traceIndex].steps.length - 1)) finish();
@@ -334,6 +406,6 @@ registerLabModule({
   replacesLegacyId: "sorting",
   icon: "▂▆▃█",
   title: "Sorting",
-  description: "Animate six sorting algorithms, track provably final positions, and compare any 2–6 algorithms on identical data.",
+  description: "Animate six sorting algorithms, track provably final positions, compare exact-input winners, and learn Big-O, stability, memory, and scaling tradeoffs.",
   render: renderSorting
 });
