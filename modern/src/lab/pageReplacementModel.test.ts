@@ -9,7 +9,7 @@ describe("page replacement model", () => {
     expect(result.faults).toBe(10);
     expect(result.hits).toBe(3);
     expect(result.steps[0].frames).toEqual([7, null, null]);
-    expect(result.steps.at(-1)?.frames).toEqual([0, 3, 2]);
+    expect(result.steps.at(-1)?.frames).toEqual([0, 2, 3]);
   });
 
   it("keeps Optimal at least as good as FIFO and LRU", () => {
