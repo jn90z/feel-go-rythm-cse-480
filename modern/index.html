@@ -10,15 +10,30 @@
     <div id="app">
       <aside class="toolbar">
         <h1>Feel-go-Rythm 2.0</h1>
+
+        <div class="panel-section">
+          <strong>Graph Setup</strong>
+          <label for="graphPreset">Preset</label>
+          <select id="graphPreset">
+            <option value="blank">Blank</option>
+            <option value="random-sparse">Random Sparse</option>
+            <option value="random-dense">Random Dense</option>
+            <option value="grid">Grid</option>
+            <option value="tree">Tree</option>
+            <option value="weighted">Weighted Demo</option>
+          </select>
+          <button id="generateGraph">Generate</button>
+        </div>
+
         <button id="addVertex">Add Vertex</button>
         <button id="addEdge">Connect Selected</button>
         <button id="deleteSelected">Delete Selected</button>
         <button id="clearGraph">Clear Graph</button>
 
-        <div class="panel-section">
+        <div class="panel-section edge-editor">
           <strong>Selected Edge</strong>
           <label for="edgeWeight">Weight</label>
-          <input id="edgeWeight" type="number" min="0" step="0.5" value="1" />
+          <input id="edgeWeight" type="number" step="0.5" value="1" />
           <button id="applyEdgeWeight">Apply Weight</button>
         </div>
 
@@ -33,9 +48,7 @@
         <p id="status">Ready</p>
       </aside>
 
-      <main class="canvas-wrap">
-        <canvas id="renderCanvas"></canvas>
-      </main>
+      <main class="canvas-wrap"><canvas id="renderCanvas"></canvas></main>
 
       <aside class="algorithm-panel">
         <div class="panel-section">
@@ -44,9 +57,15 @@
             <option value="bfs">Breadth-First Search</option>
             <option value="dfs">Depth-First Search</option>
             <option value="dijkstra">Dijkstra</option>
+            <option value="astar">A* Search</option>
+            <option value="bellman-ford">Bellman-Ford</option>
+            <option value="prim">Prim Minimum Spanning Tree</option>
+            <option value="kruskal">Kruskal Minimum Spanning Tree</option>
           </select>
           <button id="useSelectedStart">Use Selected Vertex as Start</button>
           <p id="startVertex">Start vertex: none</p>
+          <button id="useSelectedGoal">Use Selected Vertex as A* Goal</button>
+          <p id="goalVertex">Goal vertex: none</p>
         </div>
 
         <div class="panel-section controls">
@@ -58,19 +77,13 @@
         </div>
 
         <div class="panel-section">
-          <div class="frontier-header">
-            <strong id="frontierTitle">Queue</strong>
-            <span id="stepCounter">0 / 0</span>
-          </div>
+          <div class="frontier-header"><strong id="frontierTitle">Queue</strong><span id="stepCounter">0 / 0</span></div>
           <div id="frontier" class="frontier"></div>
           <div id="distances" class="distance-grid"></div>
           <p id="algorithmMessage">Choose a start vertex and run an algorithm.</p>
         </div>
 
-        <div class="panel-section code-section">
-          <strong>Pseudocode</strong>
-          <pre id="pseudocode"></pre>
-        </div>
+        <div class="panel-section code-section"><strong>Pseudocode</strong><pre id="pseudocode"></pre></div>
       </aside>
     </div>
     <script type="module" src="/src/main.ts"></script>
