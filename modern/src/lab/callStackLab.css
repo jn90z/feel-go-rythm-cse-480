@@ -49,12 +49,19 @@
   padding: 8px 10px;
   color: #aeb9ca;
   text-align: left;
+  cursor: pointer;
 }
 
 .call-stack-event.active {
   color: #fff;
   border-color: #f0a84a;
   background: rgba(240, 168, 74, .09);
+}
+
+.call-stack-event:focus-visible,
+.call-stack-predict-buttons button:focus-visible {
+  outline: 3px solid #6f9ed8;
+  outline-offset: 2px;
 }
 
 .call-stack-explanation {
@@ -74,8 +81,60 @@
   color: #aeb9ca;
 }
 
-.call-stack-metrics strong {
-  color: #fff;
+.call-stack-metrics span {
+  padding: 5px 8px;
+  border: 1px solid #303b4c;
+  border-radius: 999px;
+  background: #121923;
+}
+
+.call-stack-timeline-label {
+  display: grid;
+  grid-template-columns: auto minmax(180px, 1fr);
+  gap: 12px;
+  align-items: center;
+  color: #aeb9ca;
+  font-size: .85rem;
+}
+
+.call-stack-timeline {
+  width: 100%;
+  accent-color: #f0a84a;
+  cursor: pointer;
+}
+
+.call-stack-predict {
+  display: grid;
+  gap: 10px;
+}
+
+.call-stack-predict-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.call-stack-predict-buttons button {
+  border: 1px solid #3b485e;
+  border-radius: 8px;
+  background: #19212d;
+  color: #f4f7fb;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.call-stack-prediction {
+  margin: 0;
+  color: #aeb9ca;
+  min-height: 1.5em;
+}
+
+.call-stack-prediction.correct {
+  color: #78c68d;
+}
+
+.call-stack-prediction.incorrect {
+  color: #e7b46b;
 }
 
 @media (max-width: 820px) {
@@ -87,5 +146,9 @@
   .call-stack-event-list {
     min-height: 240px;
     max-height: 280px;
+  }
+
+  .call-stack-timeline-label {
+    grid-template-columns: 1fr;
   }
 }
