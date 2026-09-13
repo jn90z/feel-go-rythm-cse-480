@@ -46,6 +46,7 @@ export class Graph {
       throw new Error("Both vertices must exist before adding an edge.");
     }
     if (from === to) throw new Error("Self-edges are not supported yet.");
+    if (!Number.isFinite(weight)) throw new Error("Edge weight must be finite.");
 
     const existing = [...this.edges.values()].find(
       e => (e.from === from && e.to === to) || (e.from === to && e.to === from)
@@ -58,8 +59,8 @@ export class Graph {
   }
 
   updateEdgeWeight(id: EdgeId, weight: number): Edge | undefined {
-    if (!Number.isFinite(weight) || weight < 0) {
-      throw new Error("Edge weight must be a non-negative number.");
+    if (!Number.isFinite(weight)) {
+      throw new Error("Edge weight must be a finite number.");
     }
     const edge = this.edges.get(id);
     if (!edge) return undefined;
