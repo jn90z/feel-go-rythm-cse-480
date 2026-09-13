@@ -1,0 +1,110 @@
+.weighted-path-lab {
+  display: grid;
+  gap: 14px;
+}
+
+.weighted-path-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: end;
+}
+
+.weighted-path-controls label {
+  display: grid;
+  gap: 5px;
+  font-size: 0.82rem;
+  color: #aeb8c7;
+}
+
+.weighted-path-controls select,
+.weighted-path-controls button {
+  min-height: 42px;
+}
+
+.weighted-path-terrain {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.weighted-path-terrain button[aria-pressed="true"] {
+  outline: 2px solid #f0a84a;
+  outline-offset: 1px;
+}
+
+.weighted-path-grid {
+  display: grid;
+  grid-template-columns: repeat(14, minmax(22px, 1fr));
+  gap: 3px;
+  width: min(100%, 760px);
+  margin: 0 auto;
+  touch-action: none;
+}
+
+.weighted-path-cell {
+  aspect-ratio: 1;
+  min-width: 0;
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 5px;
+  padding: 0;
+  position: relative;
+  cursor: pointer;
+}
+
+.weighted-path-cell.road { background: #27303d; }
+.weighted-path-cell.grass { background: #476b49; }
+.weighted-path-cell.mud { background: #765139; }
+.weighted-path-cell.wall { background: #080a0f; }
+.weighted-path-cell.visited::after,
+.weighted-path-cell.frontier::after,
+.weighted-path-cell.path::after,
+.weighted-path-cell.start::after,
+.weighted-path-cell.goal::after {
+  content: "";
+  position: absolute;
+  inset: 20%;
+  border-radius: 50%;
+}
+.weighted-path-cell.visited::after { background: #4e84c4; opacity: .55; }
+.weighted-path-cell.frontier::after { background: #d7b34d; opacity: .8; }
+.weighted-path-cell.path::after { background: #63d58a; opacity: .95; }
+.weighted-path-cell.start::after { background: #5ec8ff; opacity: 1; }
+.weighted-path-cell.goal::after { background: #ef6d72; opacity: 1; }
+
+.weighted-path-legend,
+.weighted-path-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  font-size: .85rem;
+  color: #bdc6d3;
+}
+
+.weighted-path-compare {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.weighted-path-card {
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(255,255,255,.045);
+  border: 1px solid rgba(255,255,255,.08);
+}
+
+.weighted-path-explain {
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(240,168,74,.08);
+  border: 1px solid rgba(240,168,74,.25);
+  line-height: 1.45;
+}
+
+@media (max-width: 820px) {
+  .weighted-path-grid { gap: 2px; }
+  .weighted-path-cell { border-radius: 3px; }
+  .weighted-path-compare { grid-template-columns: 1fr; }
+  .weighted-path-controls > * { flex: 1 1 130px; }
+}
