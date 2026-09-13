@@ -5,9 +5,11 @@ on:
     branches:
       - app-packaging
       - modern-rewrite
+      - big-brain
   pull_request:
     branches:
       - modern-rewrite
+      - big-brain
   workflow_dispatch:
 
 jobs:
