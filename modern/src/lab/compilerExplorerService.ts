@@ -33,9 +33,14 @@ function languageApiId(language: CompilerLanguage): string {
   return language === "c" ? "c" : "c++";
 }
 
-async function fetchJson(url: string, init: RequestInit = {}): Promise<unknown> {
+async function fetchJson(url: string, init: RequestInit = {}, externalSignal?: AbortSignal): Promise<unknown> {
+  if (externalSignal?.aborted) throw new Error("Compilation cancelled.");
+
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timeout = globalThis.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const cancel = () => controller.abort();
+  externalSignal?.addEventListener("abort", cancel, { once: true });
+
   try {
     const response = await fetch(url, {
       ...init,
@@ -63,6 +68,7 @@ async function fetchJson(url: string, init: RequestInit = {}): Promise<unknown> 
     }
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
+      if (externalSignal?.aborted) throw new Error("Compilation cancelled.");
       throw new Error("Compiler Explorer took too long to respond. Try again in a moment.");
     }
     if (error instanceof TypeError) {
@@ -70,16 +76,22 @@ async function fetchJson(url: string, init: RequestInit = {}): Promise<unknown> 
     }
     throw error;
   } finally {
-    window.clearTimeout(timeout);
+    externalSignal?.removeEventListener("abort", cancel);
+    globalThis.clearTimeout(timeout);
   }
 }
 
-export async function compileWithCompilerExplorer(input: CompilerSettings): Promise<CompilerResult> {
+export async function compileWithCompilerExplorer(input: CompilerSettings, signal?: AbortSignal): Promise<CompilerResult> {
   const settings = normalizeCompilerSettings(input);
   if (!settings.source.trim()) throw new Error("Enter some C or C++ source code first.");
+  if (signal?.aborted) throw new Error("Compilation cancelled.");
 
   const language = languageApiId(settings.language);
-  const compilerList = await fetchJson(`${API_BASE}/compilers/${encodeURIComponent(language)}?fields=id,name,compilerType,releaseTrack`);
+  const compilerList = await fetchJson(
+    `${API_BASE}/compilers/${encodeURIComponent(language)}?fields=id,name,compilerType,releaseTrack`,
+    {},
+    signal
+  );
   if (!Array.isArray(compilerList)) throw new Error("Compiler Explorer returned an unexpected compiler list.");
   const compiler = chooseCompiler(compilerList as CompilerDescriptor[], settings.family);
   const standard = settings.language === "c" ? "-std=c17" : "-std=c++20";
@@ -114,7 +126,7 @@ export async function compileWithCompilerExplorer(input: CompilerSettings): Prom
         libraries: []
       }
     })
-  });
+  }, signal);
 
   if (!raw || typeof raw !== "object") throw new Error("Compiler Explorer returned an unexpected compile result.");
   return parseCompilerResponse(raw as Record<string, unknown>, compiler.name);
