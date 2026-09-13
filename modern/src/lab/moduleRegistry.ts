@@ -15,6 +15,10 @@ export interface LabModuleRenderResult {
   error: Error | null;
 }
 
+export interface LabModuleCleanupResult {
+  error: Error | null;
+}
+
 type RegistryListener = () => void;
 
 const modules = new Map<string, RegisteredLabModule>();
@@ -22,6 +26,10 @@ const listeners = new Set<RegistryListener>();
 
 function notify(): void {
   listeners.forEach(listener => listener());
+}
+
+function normalizeError(cause: unknown): Error {
+  return cause instanceof Error ? cause : new Error(String(cause));
 }
 
 export function registerLabModule(module: RegisteredLabModule): void {
@@ -36,18 +44,40 @@ export function listRegisteredLabModules(): RegisteredLabModule[] {
   return [...modules.values()];
 }
 
+export function makeIdempotentLabCleanup(cleanup: LabModuleCleanup): LabModuleCleanup {
+  let cleaned = false;
+  return () => {
+    if (cleaned) return;
+    cleaned = true;
+    cleanup();
+  };
+}
+
+export function runLabModuleCleanup(cleanup: LabModuleCleanup | null): LabModuleCleanupResult {
+  if (!cleanup) return { error: null };
+  try {
+    cleanup();
+    return { error: null };
+  } catch (cause) {
+    return { error: normalizeError(cause) };
+  }
+}
+
 export function renderRegisteredLabModule(module: RegisteredLabModule, host: HTMLElement): LabModuleRenderResult {
   try {
-    return { cleanup: module.render(host) ?? null, error: null };
+    const cleanup = module.render(host);
+    return {
+      cleanup: cleanup ? makeIdempotentLabCleanup(cleanup) : null,
+      error: null
+    };
   } catch (cause) {
-    const error = cause instanceof Error ? cause : new Error(String(cause));
-    return { cleanup: null, error };
+    return { cleanup: null, error: normalizeError(cause) };
   }
 }
 
 export function subscribeToLabModules(listener: RegistryListener): LabModuleCleanup {
   listeners.add(listener);
-  return () => listeners.delete(listener);
+  return makeIdempotentLabCleanup(() => listeners.delete(listener));
 }
 
 export function clearLabModulesForTests(): void {
