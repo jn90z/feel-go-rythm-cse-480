@@ -59,6 +59,7 @@ input {
 .toolbar button,
 .algorithm-panel button,
 .algorithm-panel select,
+.toolbar select,
 .toolbar input {
   width: 100%;
   margin-bottom: 10px;
@@ -77,6 +78,12 @@ input {
 .toolbar button:hover,
 .algorithm-panel button:hover {
   background: #232b39;
+}
+
+button[aria-pressed="true"] {
+  border-color: #42a5ff;
+  background: #173652;
+  box-shadow: inset 0 0 0 1px #42a5ff;
 }
 
 .help,
@@ -100,7 +107,8 @@ input {
 
 #status,
 #algorithmMessage,
-#startVertex {
+#startVertex,
+#goalVertex {
   color: #aab4c3;
   line-height: 1.4;
 }
@@ -112,7 +120,8 @@ input {
 .controls button { margin: 0; }
 
 .controls label,
-.controls input {
+.controls input,
+.controls small {
   grid-column: 1 / -1;
 }
 
@@ -174,6 +183,16 @@ input {
   touch-action: none;
 }
 
+.canvas-wrap {
+  position: relative;
+  overflow: hidden;
+}
+
+.mobile-only,
+.mobile-help {
+  display: none;
+}
+
 @media (max-width: 1100px) {
   #app {
     grid-template-columns: 240px minmax(0, 1fr) 300px;
@@ -185,6 +204,15 @@ input {
     overflow: hidden;
   }
 
+  .mobile-only,
+  .mobile-help {
+    display: initial;
+  }
+
+  .desktop-help {
+    display: none;
+  }
+
   #app {
     height: 100dvh;
     grid-template-columns: 1fr;
@@ -193,12 +221,13 @@ input {
 
   .toolbar {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 6px;
     padding: 8px;
     border: 0;
     border-bottom: 1px solid #262b36;
     overflow: visible;
+    z-index: 3;
   }
 
   .toolbar h1 {
@@ -210,14 +239,37 @@ input {
   .toolbar > button {
     margin: 0;
     padding: 8px 5px;
-    min-height: 46px;
-    font-size: 0.75rem;
+    min-height: 48px;
+    font-size: 0.76rem;
   }
 
-  .toolbar .edge-editor,
+  .toolbar .graph-setup {
+    grid-column: 1 / -1;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .graph-setup strong,
+  .graph-setup label {
+    display: none;
+  }
+
+  .graph-setup select,
+  .graph-setup button {
+    margin: 0;
+    min-height: 44px;
+  }
+
   .toolbar .help,
   .toolbar #status {
     display: none;
+  }
+
+  .edge-editor {
+    margin: 0 8px 8px;
   }
 
   .canvas-wrap {
@@ -225,12 +277,61 @@ input {
     position: relative;
   }
 
+  .mobile-canvas-hint {
+    position: absolute;
+    left: 50%;
+    bottom: 10px;
+    transform: translateX(-50%);
+    max-width: min(92%, 430px);
+    padding: 7px 11px;
+    border: 1px solid #3b4658;
+    border-radius: 999px;
+    background: rgba(17, 20, 27, 0.88);
+    color: #d8e2ef;
+    font-size: 0.76rem;
+    text-align: center;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 160ms ease;
+  }
+
+  .mobile-canvas-hint.visible {
+    opacity: 1;
+  }
+
   .algorithm-panel {
-    max-height: 36dvh;
-    padding: 8px;
+    max-height: 68dvh;
+    padding: 0 8px 8px;
     border: 0;
     border-top: 1px solid #262b36;
+    border-radius: 14px 14px 0 0;
     overflow-y: auto;
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.28);
+  }
+
+  .mobile-sheet-handle {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    display: grid;
+    justify-items: center;
+    gap: 4px;
+    margin: 0 -8px 6px !important;
+    padding: 7px 8px 8px !important;
+    min-height: 42px !important;
+    border: 0 !important;
+    border-bottom: 1px solid #262b36 !important;
+    border-radius: 14px 14px 0 0 !important;
+    background: #11141b !important;
+    font-size: 0.78rem;
+  }
+
+  .grabber {
+    display: block;
+    width: 42px;
+    height: 4px;
+    border-radius: 99px;
+    background: #556174;
   }
 
   .algorithm-panel .panel-section {
@@ -238,19 +339,125 @@ input {
     padding: 8px;
   }
 
+  .algorithm-panel.mobile-collapsed {
+    max-height: none;
+    overflow: hidden;
+  }
+
+  .algorithm-panel.mobile-collapsed > .panel-section:not(.controls),
+  .algorithm-panel.mobile-collapsed > .edge-editor {
+    display: none;
+  }
+
+  .algorithm-panel.mobile-collapsed .controls {
+    margin-top: 4px;
+  }
+
   .algorithm-panel .code-section {
     min-height: 0;
   }
 
   .controls button {
-    min-height: 48px;
+    min-height: 50px;
   }
 
   #pseudocode {
     font-size: 0.76rem;
   }
+
+  .fullscreen-exit {
+    display: none;
+    position: fixed;
+    right: max(12px, env(safe-area-inset-right));
+    top: max(12px, env(safe-area-inset-top));
+    z-index: 30;
+    width: auto;
+    min-height: 46px;
+    padding: 8px 12px;
+    border: 1px solid #3b4658;
+    border-radius: 999px;
+    background: rgba(17, 20, 27, 0.9);
+    color: #f4f7fb;
+  }
+
+  body.mobile-graph-fullscreen {
+    padding: 0;
+  }
+
+  body.mobile-graph-fullscreen #app {
+    display: block;
+    height: 100dvh;
+  }
+
+  body.mobile-graph-fullscreen .toolbar,
+  body.mobile-graph-fullscreen .algorithm-panel {
+    display: none;
+  }
+
+  body.mobile-graph-fullscreen .canvas-wrap {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100dvh;
+    z-index: 20;
+  }
+
+  body.mobile-graph-fullscreen .fullscreen-exit {
+    display: block;
+  }
+
+  body.mobile-graph-fullscreen .mobile-canvas-hint {
+    bottom: max(14px, env(safe-area-inset-bottom));
+  }
 }
 
+@media (max-width: 820px) and (orientation: landscape) {
+  #app {
+    grid-template-columns: 184px minmax(0, 1fr);
+    grid-template-rows: 1fr;
+  }
+
+  .toolbar {
+    grid-column: 1;
+    grid-row: 1;
+    align-content: start;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow-y: auto;
+    border-right: 1px solid #262b36;
+    border-bottom: 0;
+  }
+
+  .toolbar h1,
+  .toolbar .graph-setup {
+    grid-column: 1 / -1;
+  }
+
+  .toolbar > button {
+    min-height: 44px;
+    font-size: 0.68rem;
+  }
+
+  .canvas-wrap {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .algorithm-panel {
+    position: fixed;
+    right: max(8px, env(safe-area-inset-right));
+    bottom: max(8px, env(safe-area-inset-bottom));
+    left: 192px;
+    z-index: 8;
+    max-height: 70dvh;
+    border: 1px solid #262b36;
+    border-radius: 14px;
+  }
+
+  .algorithm-panel.mobile-collapsed {
+    left: auto;
+    width: min(430px, calc(100vw - 208px));
+  }
+}
 
 .runtime-error {
   position: fixed;
