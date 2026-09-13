@@ -48,7 +48,11 @@ function createRegisteredCard(module: RegisteredLabModule): HTMLButtonElement {
 
   const badge = document.createElement("small");
   badge.className = "lab-note";
-  badge.textContent = module.featured ? "Featured advanced lab" : "Advanced lab";
+  badge.textContent = module.replacesLegacyId
+    ? "Updated lab"
+    : module.featured
+      ? "Featured advanced lab"
+      : "Advanced lab";
 
   card.append(icon, title, description, badge);
   card.addEventListener("click", () => openRegisteredModule(module));
@@ -73,8 +77,12 @@ function renderRegisteredCards(): void {
   if (!grid) return;
 
   const modules = listRegisteredLabModules();
-  const legacyAnchor = grid.querySelector<HTMLElement>("[data-module]");
+  for (const module of modules) {
+    if (!module.replacesLegacyId) continue;
+    grid.querySelector<HTMLElement>(`[data-module="${CSS.escape(module.replacesLegacyId)}"]`)?.remove();
+  }
 
+  const legacyAnchor = grid.querySelector<HTMLElement>("[data-module]");
   for (const module of modules) {
     if (grid.querySelector(`[data-registered-module="${CSS.escape(module.id)}"]`)) continue;
     const card = createRegisteredCard(module);
