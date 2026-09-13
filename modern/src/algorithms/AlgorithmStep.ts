@@ -1,12 +1,12 @@
 import type { VertexId } from "../graph/Graph";
 
-export type AlgorithmName = "bfs" | "dfs" | "dijkstra";
+export type AlgorithmName = "bfs" | "dfs" | "dijkstra" | "astar" | "bellman-ford" | "prim" | "kruskal";
 export type VertexVisualState = "default" | "frontier" | "active" | "visited";
 
 export interface AlgorithmStep {
   line: number;
   message: string;
-  frontierLabel: "Queue" | "Stack" | "Open Set";
+  frontierLabel: string;
   frontier: VertexId[];
   vertexStates: Map<VertexId, VertexVisualState>;
   distances?: Map<VertexId, number>;
