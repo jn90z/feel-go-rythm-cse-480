@@ -38,8 +38,12 @@ export class GraphScene {
   private readonly edgeMeshes = new Map<EdgeId, Mesh>();
   private readonly edgeLabels = new Map<EdgeId, Mesh>();
   private readonly edges = new Map<EdgeId, Edge>();
+  private readonly coarsePointer = window.matchMedia("(pointer: coarse)").matches;
   private selected: Selection = null;
   private draggingVertexId: VertexId | null = null;
+  private dragCandidateId: VertexId | null = null;
+  private pointerDownX = 0;
+  private pointerDownY = 0;
   private dragOffset = Vector3.Zero();
   private vertexIndex = 0;
   private lastActiveVertexId: VertexId | null = null;
@@ -49,23 +53,22 @@ export class GraphScene {
     private readonly canvas: HTMLCanvasElement,
     private readonly events: GraphSceneEvents
   ) {
-    const isAndroid = /Android/i.test(navigator.userAgent);
+    const compactTouchDevice = this.coarsePointer && Math.min(window.innerWidth, window.innerHeight) < 900;
     this.engine = new Engine(
       canvas,
-      !isAndroid,
+      !compactTouchDevice,
       {
         preserveDrawingBuffer: false,
-        stencil: !isAndroid,
-        disableWebGL2Support: isAndroid,
+        stencil: true,
         doNotHandleContextLost: false
       },
-      !isAndroid
+      !compactTouchDevice
     );
 
-    if (isAndroid) this.engine.setHardwareScalingLevel(1.5);
+    if (compactTouchDevice) this.engine.setHardwareScalingLevel(1.25);
 
     this.engine.onContextLostObservable.add(() => {
-      console.warn("Babylon WebGL context lost; waiting for Android WebView to restore it.");
+      console.warn("Babylon WebGL context lost; waiting for the browser to restore it.");
     });
     this.engine.onContextRestoredObservable.add(() => {
       console.info("Babylon WebGL context restored.");
@@ -78,6 +81,9 @@ export class GraphScene {
     this.camera.attachControl(canvas, true);
     this.camera.lowerRadiusLimit = 8;
     this.camera.upperRadiusLimit = 80;
+    this.camera.panningSensibility = this.coarsePointer ? 1100 : 1000;
+    this.camera.wheelPrecision = 35;
+    this.camera.pinchPrecision = 65;
 
     new HemisphericLight("light", new Vector3(0, 1, 0), this.scene);
     this.ground = MeshBuilder.CreateGround("ground", { width: 60, height: 60 }, this.scene);
@@ -97,7 +103,8 @@ export class GraphScene {
   }
 
   addVertex(vertex: Vertex): void {
-    const mesh = MeshBuilder.CreateSphere(vertex.id, { diameter: 1.4, segments: 24 }, this.scene);
+    const diameter = this.coarsePointer ? 1.7 : 1.4;
+    const mesh = MeshBuilder.CreateSphere(vertex.id, { diameter, segments: 24 }, this.scene);
     const angle = this.vertexIndex * 0.9;
     const radius = 3 + this.vertexIndex * 0.35;
     mesh.position = new Vector3(Math.cos(angle) * radius, 1, Math.sin(angle) * radius);
@@ -135,7 +142,7 @@ export class GraphScene {
   addEdge(edge: Edge): void {
     if (this.edgeMeshes.has(edge.id)) return;
 
-    const mesh = MeshBuilder.CreateCylinder(edge.id, { height: 1, diameter: 0.16 }, this.scene);
+    const mesh = MeshBuilder.CreateCylinder(edge.id, { height: 1, diameter: this.coarsePointer ? 0.2 : 0.16 }, this.scene);
     mesh.metadata = { kind: "edge", id: edge.id };
 
     const mat = new StandardMaterial(`edge-${edge.id}`, this.scene);
@@ -233,6 +240,7 @@ export class GraphScene {
     this.vertexIndex = 0;
     this.selected = null;
     this.draggingVertexId = null;
+    this.dragCandidateId = null;
     this.lastActiveVertexId = null;
   }
 
@@ -344,11 +352,17 @@ export class GraphScene {
   }
 
   private installPointerInteractions(): void {
+    const dragThreshold = this.coarsePointer ? 10 : 5;
+
     this.scene.onPointerObservable.add(pointerInfo => {
       if (pointerInfo.type === PointerEventTypes.POINTERDOWN) {
         const pick = this.scene.pick(this.scene.pointerX, this.scene.pointerY);
         const metadata = pick?.pickedMesh?.metadata;
         const pointerEvent = pointerInfo.event as PointerEvent;
+
+        this.pointerDownX = pointerEvent.clientX;
+        this.pointerDownY = pointerEvent.clientY;
+        this.dragCandidateId = null;
 
         if (metadata?.kind === "vertex") {
           const id = metadata.id as VertexId;
@@ -356,13 +370,7 @@ export class GraphScene {
           this.setSelection({ kind: "vertex", id }, { shiftKey });
           if (shiftKey) return;
 
-          this.draggingVertexId = id;
-          const groundPick = this.pickGround();
-          const mesh = this.vertexMeshes.get(id);
-          if (groundPick && mesh) {
-            this.dragOffset = mesh.position.subtract(groundPick);
-            this.camera.detachControl();
-          }
+          this.dragCandidateId = id;
           return;
         }
 
@@ -374,7 +382,24 @@ export class GraphScene {
         this.setSelection(null);
       }
 
-      if (pointerInfo.type === PointerEventTypes.POINTERMOVE && this.draggingVertexId) {
+      if (pointerInfo.type === PointerEventTypes.POINTERMOVE && this.dragCandidateId) {
+        const pointerEvent = pointerInfo.event as PointerEvent;
+        const distance = Math.hypot(
+          pointerEvent.clientX - this.pointerDownX,
+          pointerEvent.clientY - this.pointerDownY
+        );
+
+        if (!this.draggingVertexId && distance < dragThreshold) return;
+
+        if (!this.draggingVertexId) {
+          this.draggingVertexId = this.dragCandidateId;
+          const groundPick = this.pickGround();
+          const mesh = this.vertexMeshes.get(this.draggingVertexId);
+          if (!groundPick || !mesh) return;
+          this.dragOffset = mesh.position.subtract(groundPick);
+          this.camera.detachControl();
+        }
+
         const point = this.pickGround();
         const mesh = this.vertexMeshes.get(this.draggingVertexId);
         if (!point || !mesh) return;
@@ -386,9 +411,11 @@ export class GraphScene {
         this.events.onVertexMoved(this.draggingVertexId);
       }
 
-      if (pointerInfo.type === PointerEventTypes.POINTERUP && this.draggingVertexId) {
+      if (pointerInfo.type === PointerEventTypes.POINTERUP) {
+        const wasDragging = Boolean(this.draggingVertexId);
+        this.dragCandidateId = null;
         this.draggingVertexId = null;
-        this.camera.attachControl(this.canvas, true);
+        if (wasDragging) this.camera.attachControl(this.canvas, true);
       }
     });
   }
