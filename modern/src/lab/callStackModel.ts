@@ -21,12 +21,22 @@ export interface CallStackTrace {
   events: CallStackEvent[];
 }
 
+const MAX_INPUT: Record<RecursiveExample, number> = {
+  fibonacci: 8,
+  factorial: 10
+};
+
+export function normalizeCallStackInput(example: RecursiveExample, input: number): number {
+  if (!Number.isFinite(input)) return 0;
+  return Math.max(0, Math.min(MAX_INPUT[example], Math.floor(input)));
+}
+
 function frame(functionName: string, argument: number): string {
   return `${functionName}(${argument})`;
 }
 
 export function buildCallStackTrace(example: RecursiveExample, input: number): CallStackTrace {
-  const safeInput = Math.max(0, Math.floor(input));
+  const safeInput = normalizeCallStackInput(example, input);
   const events: CallStackEvent[] = [];
   const stack: string[] = [];
   let calls = 0;
