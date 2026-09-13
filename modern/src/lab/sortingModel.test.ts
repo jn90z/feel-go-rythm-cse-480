@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSortSteps } from "./sortingModel";
+import { buildSortComparison, buildSortSteps } from "./sortingModel";
 
 describe("sorting finalization states", () => {
   it("grows Bubble Sort's finalized suffix after each pass", () => {
@@ -49,5 +49,26 @@ describe("sorting finalization states", () => {
       expect(finalStep.values).toEqual([1, 2, 3, 4, 5]);
       expect(finalStep.finalized).toEqual([0, 1, 2, 3, 4]);
     }
+  });
+
+  it("builds comparable traces for all six algorithms against the same input", () => {
+    const input = [6, 1, 5, 2, 4, 3];
+    const algorithms = ["bubble", "selection", "insertion", "merge", "quick", "heap"] as const;
+    const comparison = buildSortComparison(input, [...algorithms]);
+
+    expect(comparison.map(entry => entry.algorithm)).toEqual(algorithms);
+    expect(comparison).toHaveLength(6);
+    for (const entry of comparison) {
+      expect(entry.steps[0].values).toEqual(input);
+      expect(entry.steps.at(-1)?.values).toEqual([1, 2, 3, 4, 5, 6]);
+      expect(entry.comparisons).toBeGreaterThanOrEqual(0);
+      expect(entry.writes).toBeGreaterThanOrEqual(0);
+      expect(entry.totalSteps).toBe(entry.steps.length - 1);
+    }
+  });
+
+  it("deduplicates comparison choices while preserving selection order", () => {
+    const comparison = buildSortComparison([3, 2, 1], ["quick", "bubble", "quick", "merge"]);
+    expect(comparison.map(entry => entry.algorithm)).toEqual(["quick", "bubble", "merge"]);
   });
 });
