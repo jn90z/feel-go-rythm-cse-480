@@ -86,7 +86,8 @@ function renderRegisteredCards(): void {
     const legacyCount = grid.querySelectorAll("[data-module]").length;
     const registeredCount = grid.querySelectorAll("[data-registered-module]").length;
     const total = legacyCount + registeredCount;
-    summary.textContent = `${total} learning modules available. Advanced and newly added labs are shown first.`;
+    const nextText = `${total} learning modules available. Advanced and newly added labs are shown first.`;
+    if (summary.textContent !== nextText) summary.textContent = nextText;
   }
 }
 
