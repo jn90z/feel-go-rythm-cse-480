@@ -1,9 +1,8 @@
 import "./callStackLab.css";
 import { buildCallStackTrace, type RecursiveExample } from "./callStackModel";
+import { registerLabModule, type LabModuleCleanup } from "./moduleRegistry";
 
-export {};
-
-function renderCallStack(host: HTMLElement): void {
+function renderCallStack(host: HTMLElement): LabModuleCleanup {
   host.innerHTML = `
     <div class="lab-module">
       <div class="lab-controls">
@@ -126,49 +125,14 @@ function renderCallStack(host: HTMLElement): void {
   });
 
   draw();
-
-  const overlay = document.querySelector<HTMLElement>(".lab-overlay");
-  if (overlay) {
-    const cleanupObserver = new MutationObserver(() => {
-      if (overlay.hidden || !host.isConnected) {
-        stop();
-        cleanupObserver.disconnect();
-      }
-    });
-    cleanupObserver.observe(overlay, { attributes: true, attributeFilter: ["hidden"] });
-  }
+  return stop;
 }
 
-function installCallStackCard(): void {
-  const overlay = document.querySelector<HTMLElement>(".lab-overlay");
-  const body = overlay?.querySelector<HTMLElement>(".lab-body");
-  const heading = overlay?.querySelector<HTMLHeadingElement>("h2");
-  const back = overlay?.querySelector<HTMLButtonElement>(".lab-back");
-  if (!overlay || !body || !heading || !back) return;
-
-  const addCard = () => {
-    const grid = body.querySelector<HTMLElement>(".lab-home-grid");
-    if (!grid || grid.querySelector("[data-advanced-module='call-stack']")) return;
-
-    const card = document.createElement("button");
-    card.type = "button";
-    card.className = "lab-card lab-card-featured";
-    card.dataset.advancedModule = "call-stack";
-    card.innerHTML = `<span class="lab-icon">↳□</span><h3>Recursion Call Stack</h3><p>Step through stack-frame creation, base cases, returns, and unwinding for Fibonacci and factorial.</p>`;
-    card.addEventListener("click", () => {
-      back.hidden = false;
-      heading.textContent = "Recursion Call Stack";
-      body.replaceChildren();
-      const host = document.createElement("div");
-      body.append(host);
-      renderCallStack(host);
-    });
-    grid.append(card);
-  };
-
-  const observer = new MutationObserver(addCard);
-  observer.observe(body, { childList: true, subtree: true });
-  addCard();
-}
-
-installCallStackCard();
+registerLabModule({
+  id: "call-stack",
+  icon: "↳□",
+  title: "Recursion Call Stack",
+  description: "Step through stack-frame creation, base cases, returns, and unwinding for Fibonacci and factorial.",
+  featured: true,
+  render: renderCallStack
+});
