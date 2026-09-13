@@ -40,8 +40,8 @@ jobs:
         shell: bash
         run: |
           yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018"
-          echo "NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;28.0.12433566"
+          echo "NDK_HOME=$ANDROID_HOME/ndk/28.0.12433566" >> "$GITHUB_ENV"
 
       - name: Install dependencies
         run: npm install
@@ -54,6 +54,18 @@ jobs:
 
       - name: Build debug APK
         run: npm run android:build:debug-apk
+
+      - name: Verify ARM64 16KB ELF alignment
+        shell: bash
+        run: |
+          SO="src-tauri/gen/android/app/src/main/jniLibs/arm64-v8a/libfeel_go_rythm_lib.so"
+          OBJDUMP="$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-objdump"
+          "$OBJDUMP" -p "$SO" | grep LOAD
+          if "$OBJDUMP" -p "$SO" | grep LOAD | grep -q "align 2\*\*12"; then
+            echo "ERROR: ARM64 native library still contains 4KB-aligned LOAD segments"
+            exit 1
+          fi
+          echo "ARM64 native library is compatible with 16KB page-size devices."
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
