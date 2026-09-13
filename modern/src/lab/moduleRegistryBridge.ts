@@ -1,5 +1,6 @@
 import {
   listRegisteredLabModules,
+  renderRegisteredLabModule,
   subscribeToLabModules,
   type LabModuleCleanup,
   type RegisteredLabModule
@@ -26,6 +27,31 @@ function cleanupActiveModule(): void {
   activeCleanup = null;
 }
 
+function renderModuleError(host: HTMLElement, module: RegisteredLabModule, error: Error): void {
+  host.replaceChildren();
+  const panel = document.createElement("section");
+  panel.className = "lab-panel lab-module-error";
+  panel.setAttribute("role", "alert");
+
+  const title = document.createElement("h3");
+  title.textContent = `${module.title} could not start`;
+
+  const message = document.createElement("p");
+  message.textContent = "This module hit an unexpected error while loading. The rest of the learning lab is still available.";
+
+  const detail = document.createElement("p");
+  detail.className = "lab-note";
+  detail.textContent = `Error: ${error.message || "Unknown module error"}`;
+
+  const recover = document.createElement("button");
+  recover.type = "button";
+  recover.textContent = "Back to modules";
+  recover.addEventListener("click", () => back?.click(), { once: true });
+
+  panel.append(title, message, detail, recover);
+  host.append(panel);
+}
+
 function openRegisteredModule(module: RegisteredLabModule): void {
   if (!body || !heading || !back) return;
   cleanupActiveModule();
@@ -35,7 +61,10 @@ function openRegisteredModule(module: RegisteredLabModule): void {
   const host = document.createElement("div");
   host.dataset.registeredLabHost = module.id;
   body.append(host);
-  activeCleanup = module.render(host) ?? null;
+
+  const result = renderRegisteredLabModule(module, host);
+  activeCleanup = result.cleanup;
+  if (result.error) renderModuleError(host, module, result.error);
 }
 
 function createRegisteredCard(module: RegisteredLabModule): HTMLButtonElement {
