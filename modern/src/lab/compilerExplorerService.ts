@@ -37,12 +37,36 @@ async function fetchJson(url: string, init: RequestInit = {}): Promise<unknown> 
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    const response = await fetch(url, { ...init, signal: controller.signal });
+    const response = await fetch(url, {
+      ...init,
+      signal: controller.signal,
+      headers: {
+        "Accept": "application/json",
+        ...(init.headers ?? {})
+      }
+    });
     if (!response.ok) throw new Error(`Compiler Explorer returned HTTP ${response.status}.`);
-    return await response.json();
+
+    const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
+    const text = await response.text();
+    if (!text.trim()) throw new Error("Compiler Explorer returned an empty response.");
+
+    try {
+      return JSON.parse(text) as unknown;
+    } catch {
+      const looksLikeJson = contentType.includes("application/json") || /^[\[{]/.test(text.trim());
+      throw new Error(
+        looksLikeJson
+          ? "Compiler Explorer returned malformed JSON. Try again in a moment."
+          : "Compiler Explorer returned a non-JSON response. Its public API may be unavailable or blocked from this browser."
+      );
+    }
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
       throw new Error("Compiler Explorer took too long to respond. Try again in a moment.");
+    }
+    if (error instanceof TypeError) {
+      throw new Error("Could not reach Compiler Explorer from this browser. Check the network connection or browser/CORS restrictions.");
     }
     throw error;
   } finally {
@@ -63,7 +87,6 @@ export async function compileWithCompilerExplorer(input: CompilerSettings): Prom
   const raw = await fetchJson(`${API_BASE}/compiler/${encodeURIComponent(compiler.id)}/compile`, {
     method: "POST",
     headers: {
-      "Accept": "application/json",
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
