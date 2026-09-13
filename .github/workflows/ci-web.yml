@@ -13,6 +13,9 @@ on:
       - big-brain
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   test-and-build:
     runs-on: ubuntu-latest
@@ -23,6 +26,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -30,7 +35,13 @@ jobs:
           node-version: 22
 
       - name: Install dependencies
-        run: npm install
+        run: npm install --no-fund --no-audit
+
+      - name: Security checks
+        run: npm run security:check
+
+      - name: Audit dependencies
+        run: npm audit --audit-level=high
 
       - name: Run tests
         run: npm test
