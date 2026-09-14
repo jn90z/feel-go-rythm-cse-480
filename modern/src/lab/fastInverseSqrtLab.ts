@@ -11,16 +11,17 @@ function renderFastInverseSqrt(host: HTMLElement): () => void {
       </section>
       <div class="lab-controls fisr-controls"><label>X<input data-fisr-x type="range" min="-10" max="10" step="0.1" value="3"></label><label>Y<input data-fisr-y type="range" min="-10" max="10" step="0.1" value="4"></label><button type="button" data-fisr-preset>3-4-5 Vector</button></div>
       <section class="fisr-vector-grid">
-        <div class="lab-panel"><span class="fisr-kicker">Vector playground</span><div class="fisr-plane" data-fisr-plane><svg viewBox="0 0 400 400" role="img" aria-label="Vector normalization visualization"><line x1="200" y1="20" x2="200" y2="380" class="fisr-axis"/><line x1="20" y1="200" x2="380" y2="200" class="fisr-axis"/><circle cx="200" cy="200" r="120" class="fisr-unit-circle"/><line data-fisr-original x1="200" y1="200" x2="260" y2="120" class="fisr-vector original"/><line data-fisr-exact x1="200" y1="200" x2="260" y2="120" class="fisr-vector exact"/><line data-fisr-approx x1="200" y1="200" x2="260" y2="120" class="fisr-vector approx"/><circle data-fisr-handle cx="260" cy="120" r="9" class="fisr-handle"/></svg></div><div class="fisr-legend"><span>Original</span><span>Exact unit vector</span><span>Fast approximation</span></div></div>
+        <div class="lab-panel"><span class="fisr-kicker">Vector playground</span><p class="lab-note">Drag the orange endpoint or use the sliders. The green and purple vectors stay near the unit circle.</p><div class="fisr-plane" data-fisr-plane><svg data-fisr-svg viewBox="0 0 400 400" role="img" aria-label="Vector normalization visualization"><line x1="200" y1="20" x2="200" y2="380" class="fisr-axis"/><line x1="20" y1="200" x2="380" y2="200" class="fisr-axis"/><circle cx="200" cy="200" r="120" class="fisr-unit-circle"/><line data-fisr-original x1="200" y1="200" x2="260" y2="120" class="fisr-vector original"/><line data-fisr-exact x1="200" y1="200" x2="260" y2="120" class="fisr-vector exact"/><line data-fisr-approx x1="200" y1="200" x2="260" y2="120" class="fisr-vector approx"/><circle data-fisr-handle cx="260" cy="120" r="9" class="fisr-handle" tabindex="0" aria-label="Drag vector endpoint"/></svg></div><div class="fisr-legend"><span>Original</span><span>Exact unit vector</span><span>Fast approximation</span></div></div>
         <div class="lab-panel fisr-metrics"><span class="fisr-kicker">Watch the math</span><div><span>v</span><strong data-fisr-vector></strong></div><div><span>v·v = length²</span><strong data-fisr-l2></strong></div><div><span>|v|</span><strong data-fisr-length></strong></div><div><span>Exact 1/√(v·v)</span><strong data-fisr-exact-inv></strong></div><div><span>Fast estimate after 1 Newton step</span><strong data-fisr-fast-inv></strong></div><div><span>Normalized exact</span><strong data-fisr-exact-v></strong></div><div><span>Normalized fast</span><strong data-fisr-fast-v></strong></div><div><span>Length error</span><strong data-fisr-error></strong></div></div>
       </section>
       <section class="lab-panel"><span class="fisr-kicker">Step through the famous trick</span><div class="fisr-stage-tabs" data-fisr-tabs><button type="button" data-stage="0">1 · Length²</button><button type="button" data-stage="1">2 · Float bits</button><button type="button" data-stage="2">3 · Magic estimate</button><button type="button" data-stage="3">4 · Newton step</button><button type="button" data-stage="4">5 · Normalize</button></div><div class="fisr-stage" data-fisr-stage aria-live="polite"></div></section>
-      <section class="lab-panel fisr-bits-panel"><span class="fisr-kicker">IEEE-754 bit view</span><div class="fisr-bit-row"><span>input float</span><code data-fisr-input-bits></code></div><div class="fisr-bit-row"><span>shift right 1</span><code data-fisr-shifted-bits></code></div><div class="fisr-bit-row"><span>0x5f3759df − shifted</span><code data-fisr-guess-bits></code></div><p class="lab-note">The bit trick gives a surprisingly good initial guess for x⁻¹ᐟ². Newton-Raphson then rapidly improves that guess. The Quake III source uses one refinement step in its famous implementation. citeturn314525search24</p></section>
+      <section class="lab-panel fisr-bits-panel"><span class="fisr-kicker">IEEE-754 bit view</span><div class="fisr-bit-row"><span>input float</span><code data-fisr-input-bits></code></div><div class="fisr-bit-row"><span>shift right 1</span><code data-fisr-shifted-bits></code></div><div class="fisr-bit-row"><span>0x5f3759df − shifted</span><code data-fisr-guess-bits></code></div><p class="lab-note">The bit trick gives a surprisingly good initial guess for x⁻¹ᐟ². Newton-Raphson then rapidly improves that guess. The famous Quake III implementation uses one refinement step.</p></section>
       <section class="lab-panel fisr-takeaway"><strong>What to understand</strong><p class="lab-note">The “magic number” is not the whole algorithm. The important chain is: vector normalization needs reciprocal length → reciprocal length is an inverse square root → the float bit pattern can seed a cheap approximation → Newton’s method turns the rough estimate into a much better one. On modern CPUs, hardware instructions often make this historical optimization unnecessary, but it remains an excellent lesson in numerical computing.</p></section>
     </div>`;
 
   const xInput = host.querySelector<HTMLInputElement>("[data-fisr-x]")!;
   const yInput = host.querySelector<HTMLInputElement>("[data-fisr-y]")!;
+  const svg = host.querySelector<SVGSVGElement>("[data-fisr-svg]")!;
   const original = host.querySelector<SVGLineElement>("[data-fisr-original]")!;
   const exactLine = host.querySelector<SVGLineElement>("[data-fisr-exact]")!;
   const approxLine = host.querySelector<SVGLineElement>("[data-fisr-approx]")!;
@@ -28,6 +29,7 @@ function renderFastInverseSqrt(host: HTMLElement): () => void {
   const stageHost = host.querySelector<HTMLElement>("[data-fisr-stage]")!;
   const tabs = [...host.querySelectorAll<HTMLButtonElement>("[data-stage]")];
   let stage = 0;
+  let dragging = false;
 
   const setLine = (line: SVGLineElement, x: number, y: number, scale: number) => {
     line.setAttribute("x2", String(200 + x * scale));
@@ -54,16 +56,13 @@ function renderFastInverseSqrt(host: HTMLElement): () => void {
     handle.setAttribute("cx", String(200 + vector.x * originalScale));
     handle.setAttribute("cy", String(200 - vector.y * originalScale));
 
-    const inputBits = host.querySelector<HTMLElement>("[data-fisr-input-bits]")!;
-    const shiftedBits = host.querySelector<HTMLElement>("[data-fisr-shifted-bits]")!;
-    const guessBits = host.querySelector<HTMLElement>("[data-fisr-guess-bits]")!;
-    inputBits.textContent = inv ? bits32(inv.inputBits) : "—";
-    shiftedBits.textContent = inv ? bits32(inv.shiftedBits) : "—";
-    guessBits.textContent = inv ? bits32(inv.guessBits) : "—";
+    host.querySelector<HTMLElement>("[data-fisr-input-bits]")!.textContent = inv ? bits32(inv.inputBits) : "—";
+    host.querySelector<HTMLElement>("[data-fisr-shifted-bits]")!.textContent = inv ? bits32(inv.shiftedBits) : "—";
+    host.querySelector<HTMLElement>("[data-fisr-guess-bits]")!.textContent = inv ? bits32(inv.guessBits) : "—";
 
     const stages = [
-      `Start with v·v = ${vector.lengthSquared.toFixed(4)}. This avoids computing the square root until we actually need the reciprocal length.`,
-      inv ? `Treat ${inv.input.toFixed(4)} as a 32-bit IEEE-754 float. Its exponent and mantissa encode the number approximately like scientific notation in base 2.` : "The zero vector has no direction, so normalization is undefined.",
+      `Start with v·v = ${vector.lengthSquared.toFixed(4)}. This is the squared length. Normalization needs 1/√(v·v).`,
+      inv ? `Treat ${inv.input.toFixed(4)} as a 32-bit IEEE-754 float. Its sign, exponent, and mantissa encode the number in binary scientific notation.` : "The zero vector has no direction, so normalization is undefined.",
       inv ? `The integer operation 0x5f3759df − (bits >> 1) produces an initial estimate ${inv.initialGuess.toFixed(8)} for 1/√x.` : "Choose a non-zero vector to see the approximation.",
       inv ? `One Newton step y ← y(1.5 − 0.5xy²) gives ${inv.afterOneNewton.toFixed(8)}. Error falls to ${inv.oneIterationErrorPercent.toFixed(5)}%. A second step reaches ${inv.afterTwoNewton.toFixed(8)}.` : "Newton refinement needs a positive squared length.",
       `Multiply the original vector by the inverse length. Exact gives (${vector.exact.x.toFixed(5)}, ${vector.exact.y.toFixed(5)}); the fast approximation gives (${vector.approximate.x.toFixed(5)}, ${vector.approximate.y.toFixed(5)}). Both point the same direction; the approximation is just slightly off unit length.`
@@ -72,13 +71,47 @@ function renderFastInverseSqrt(host: HTMLElement): () => void {
     tabs.forEach((button, i) => button.setAttribute("aria-pressed", String(i === stage)));
   };
 
+  const setVectorFromPointer = (event: PointerEvent) => {
+    const rect = svg.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+    const sx = ((event.clientX - rect.left) / rect.width) * 400;
+    const sy = ((event.clientY - rect.top) / rect.height) * 400;
+    const x = Math.max(-10, Math.min(10, (sx - 200) / 12));
+    const y = Math.max(-10, Math.min(10, (200 - sy) / 12));
+    xInput.value = x.toFixed(1);
+    yInput.value = y.toFixed(1);
+    draw();
+  };
+
+  const onPointerDown = (event: PointerEvent) => {
+    dragging = true;
+    svg.setPointerCapture(event.pointerId);
+    setVectorFromPointer(event);
+  };
+  const onPointerMove = (event: PointerEvent) => { if (dragging) setVectorFromPointer(event); };
+  const onPointerUp = (event: PointerEvent) => {
+    dragging = false;
+    if (svg.hasPointerCapture(event.pointerId)) svg.releasePointerCapture(event.pointerId);
+  };
   const onInput = () => draw();
+
   xInput.addEventListener("input", onInput);
   yInput.addEventListener("input", onInput);
+  svg.addEventListener("pointerdown", onPointerDown);
+  svg.addEventListener("pointermove", onPointerMove);
+  svg.addEventListener("pointerup", onPointerUp);
+  svg.addEventListener("pointercancel", onPointerUp);
   tabs.forEach(button => button.addEventListener("click", () => { stage = Number(button.dataset.stage ?? 0); draw(); }));
   host.querySelector<HTMLButtonElement>("[data-fisr-preset]")!.addEventListener("click", () => { xInput.value = "3"; yInput.value = "4"; draw(); });
   draw();
-  return () => { xInput.removeEventListener("input", onInput); yInput.removeEventListener("input", onInput); };
+  return () => {
+    xInput.removeEventListener("input", onInput);
+    yInput.removeEventListener("input", onInput);
+    svg.removeEventListener("pointerdown", onPointerDown);
+    svg.removeEventListener("pointermove", onPointerMove);
+    svg.removeEventListener("pointerup", onPointerUp);
+    svg.removeEventListener("pointercancel", onPointerUp);
+  };
 }
 
 registerLabModule({ id: "fast-inverse-sqrt", icon: "🧭", title: "Fast Inverse Square Root", description: "Normalize vectors, inspect IEEE-754 bits, decode the famous 0x5f3759df estimate, and watch Newton's method refine it.", featured: true, render: renderFastInverseSqrt });
