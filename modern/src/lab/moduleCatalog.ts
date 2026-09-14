@@ -45,6 +45,7 @@ const EXPLICIT_CATEGORY: Record<string, LabCategory> = {
   "cpu-scheduling": "Operating Systems",
   "page-replacement": "Operating Systems",
   "cache-locality": "Operating Systems",
+  "memory-journey": "Operating Systems",
   networking: "Networking",
   "reliable-transport": "Networking",
   "encryption-keys": "Networking",
