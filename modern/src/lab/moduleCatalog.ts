@@ -54,6 +54,7 @@ const EXPLICIT_CATEGORY: Record<string, LabCategory> = {
   "compiler-explorer": "Programming & Compilers",
   "cpp-api-integration": "Programming & Compilers",
   "tiny-llm": "AI & Machine Learning",
+  "train-neural-network": "AI & Machine Learning",
   "compression-zip": "Foundations",
   "turing-machine": "Foundations"
 };
