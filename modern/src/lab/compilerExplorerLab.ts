@@ -11,6 +11,7 @@ import {
   type OptimizationLevel
 } from "./compilerExplorerModel";
 import { compileWithCompilerExplorer } from "./compilerExplorerService";
+import { buildSourceSiliconTrace, SOURCE_SILICON_MAX_INDEX } from "./sourceSiliconModel";
 
 function selectSourceLine(editor: HTMLTextAreaElement, lineNumber: number): void {
   const lines = editor.value.split("\n");
@@ -80,9 +81,48 @@ function renderCompilerExplorer(host: HTMLElement): LabModuleCleanup {
         <div id="compilerComparisonGrid" class="compiler-comparison-grid"></div>
       </section>
 
+      <section class="lab-panel source-silicon-xray">
+        <div class="source-silicon-header">
+          <div><strong>🔬 Source-to-Silicon X-Ray</strong><p class="lab-note">Follow one ordinary C++ array operation until it becomes a concrete byte address the memory system must service.</p></div>
+          <span class="source-silicon-badge">deterministic teaching model</span>
+        </div>
+        <div class="lab-controls source-silicon-controls">
+          <label>Array index i
+            <input id="siliconIndex" type="range" min="0" max="${SOURCE_SILICON_MAX_INDEX}" step="1" value="3" aria-label="Array index">
+            <output id="siliconIndexValue">3</output>
+          </label>
+          <button id="siliconPrev" type="button">Previous stage</button>
+          <button id="siliconPlay" type="button">Play</button>
+          <button id="siliconNext" type="button">Next stage</button>
+        </div>
+        <div class="source-silicon-track" id="siliconTrack" aria-label="Source to silicon stages"></div>
+        <div class="source-silicon-stage">
+          <div class="source-silicon-stage-heading"><strong id="siliconStageTitle"></strong><span id="siliconStageCount"></span></div>
+          <pre id="siliconStageCode"></pre>
+          <p id="siliconStageExplanation" class="lab-note"></p>
+        </div>
+        <label class="source-silicon-scrubber">Stage
+          <input id="siliconStage" type="range" min="0" max="7" step="1" value="0" aria-label="Source to silicon stage">
+        </label>
+        <div class="source-silicon-predict">
+          <div><strong>Predict before reveal</strong><p class="lab-note">If <code>i</code> increases by 1 and each element is a 32-bit <code>int</code>, how far should the effective byte address move?</p></div>
+          <div class="source-silicon-predict-actions" role="group" aria-label="Effective address prediction">
+            <button type="button" data-silicon-predict="1">+1 byte</button>
+            <button type="button" data-silicon-predict="4">+4 bytes</button>
+            <button type="button" data-silicon-predict="8">+8 bytes</button>
+          </div>
+          <p id="siliconPrediction" class="source-silicon-prediction" aria-live="polite">Choose a prediction to reveal why.</p>
+        </div>
+        <div class="source-silicon-handoff">
+          <strong>Bridge to Memory Journey</strong>
+          <span id="siliconHandoff"></span>
+          <span class="lab-note">From here the address can flow through the TLB, page table, cache, and physical memory—the exact hidden state visualized in Memory Journey X-Ray.</span>
+        </div>
+      </section>
+
       <section class="lab-panel">
         <strong>What to learn</strong>
-        <p class="lab-note">Change one idea at a time: source construct, compiler family, or optimization level. Watch how calls, branches, memory traffic, and instruction count change. This lab intentionally does not execute arbitrary code.</p>
+        <p class="lab-note">Change one idea at a time: source construct, compiler family, or optimization level. Watch how calls, branches, memory traffic, and instruction count change. Then use Source-to-Silicon X-Ray to connect source syntax to the address-generation hardware beneath the assembly. This lab intentionally does not execute arbitrary code.</p>
       </section>
     </div>`;
 
@@ -99,8 +139,13 @@ function renderCompilerExplorer(host: HTMLElement): LabModuleCleanup {
   const explanation = host.querySelector<HTMLElement>("#compilerExplanation")!;
   const instruction = host.querySelector<HTMLElement>("#compilerInstruction")!;
   const comparisonPanel = host.querySelector<HTMLElement>("#compilerComparison")!;
+  const siliconIndex = host.querySelector<HTMLInputElement>("#siliconIndex")!;
+  const siliconStage = host.querySelector<HTMLInputElement>("#siliconStage")!;
+  const siliconTrack = host.querySelector<HTMLElement>("#siliconTrack")!;
+  const siliconPlay = host.querySelector<HTMLButtonElement>("#siliconPlay")!;
   let requestGeneration = 0;
   let activeRequest: AbortController | null = null;
+  let siliconTimer: number | null = null;
 
   const beginRequest = (): { generation: number; controller: AbortController } => {
     activeRequest?.abort();
@@ -247,16 +292,95 @@ function renderCompilerExplorer(host: HTMLElement): LabModuleCleanup {
     }
   };
 
+  const stopSiliconPlayback = () => {
+    if (siliconTimer !== null) window.clearInterval(siliconTimer);
+    siliconTimer = null;
+    siliconPlay.textContent = "Play";
+  };
+
+  const drawSilicon = () => {
+    const trace = buildSourceSiliconTrace(Number(siliconIndex.value));
+    const stageIndex = Math.min(trace.stages.length - 1, Math.max(0, Number(siliconStage.value) || 0));
+    const stage = trace.stages[stageIndex];
+    host.querySelector<HTMLOutputElement>("#siliconIndexValue")!.value = String(trace.index);
+    host.querySelector<HTMLElement>("#siliconStageTitle")!.textContent = stage.title;
+    host.querySelector<HTMLElement>("#siliconStageCount")!.textContent = `${stageIndex + 1} / ${trace.stages.length}`;
+    host.querySelector<HTMLElement>("#siliconStageCode")!.textContent = stage.code;
+    host.querySelector<HTMLElement>("#siliconStageExplanation")!.textContent = stage.explanation;
+    host.querySelector<HTMLElement>("#siliconHandoff")!.textContent = `Effective address 0x${trace.effectiveAddress.toString(16)} is ready for translation and caching.`;
+    siliconTrack.replaceChildren();
+    trace.stages.forEach((item, index) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "source-silicon-node";
+      button.textContent = item.id;
+      button.setAttribute("aria-pressed", String(index === stageIndex));
+      if (index <= stageIndex) button.classList.add("visited");
+      button.addEventListener("click", () => {
+        stopSiliconPlayback();
+        siliconStage.value = String(index);
+        drawSilicon();
+      }, { once: true });
+      siliconTrack.append(button);
+    });
+  };
+
+  const moveSiliconStage = (delta: number) => {
+    stopSiliconPlayback();
+    siliconStage.value = String(Math.min(7, Math.max(0, Number(siliconStage.value) + delta)));
+    drawSilicon();
+  };
+
   preset.addEventListener("change", loadPreset);
   source.addEventListener("input", updateSourceCount);
   compileButton.addEventListener("click", compile);
   compareButton.addEventListener("click", compare);
+  siliconIndex.addEventListener("input", () => {
+    stopSiliconPlayback();
+    host.querySelector<HTMLElement>("#siliconPrediction")!.textContent = "Choose a prediction to reveal why.";
+    drawSilicon();
+  });
+  siliconStage.addEventListener("input", () => {
+    stopSiliconPlayback();
+    drawSilicon();
+  });
+  host.querySelector<HTMLButtonElement>("#siliconPrev")!.addEventListener("click", () => moveSiliconStage(-1));
+  host.querySelector<HTMLButtonElement>("#siliconNext")!.addEventListener("click", () => moveSiliconStage(1));
+  siliconPlay.addEventListener("click", () => {
+    if (siliconTimer !== null) {
+      stopSiliconPlayback();
+      return;
+    }
+    siliconPlay.textContent = "Pause";
+    if (Number(siliconStage.value) >= 7) siliconStage.value = "0";
+    drawSilicon();
+    siliconTimer = window.setInterval(() => {
+      const next = Number(siliconStage.value) + 1;
+      if (next > 7) {
+        stopSiliconPlayback();
+        return;
+      }
+      siliconStage.value = String(next);
+      drawSilicon();
+    }, 900);
+  });
+  host.querySelectorAll<HTMLButtonElement>("[data-silicon-predict]").forEach(button => {
+    button.addEventListener("click", () => {
+      const prediction = Number(button.dataset.siliconPredict);
+      const feedback = host.querySelector<HTMLElement>("#siliconPrediction")!;
+      feedback.textContent = prediction === 4
+        ? "Correct: a 32-bit int occupies 4 bytes, so i + 1 advances the effective address by 4 bytes."
+        : `Not quite: ${prediction > 4 ? "8 bytes would skip one 32-bit int" : "array indexing advances by element size, not one raw byte"}. The correct stride is +4 bytes.`;
+    });
+  });
   loadPreset();
+  drawSilicon();
 
   return () => {
     requestGeneration += 1;
     activeRequest?.abort();
     activeRequest = null;
+    stopSiliconPlayback();
   };
 }
 
@@ -264,7 +388,7 @@ registerLabModule({
   id: "compiler-explorer",
   icon: "C→ASM",
   title: "Compiler Explorer",
-  description: "Edit C/C++, compile with live GCC or Clang through Compiler Explorer, connect source lines to assembly, and compare -O0 with -O2.",
+  description: "Edit C/C++, compile with live GCC or Clang, connect source to assembly, and X-ray one array expression all the way to CPU address generation.",
   featured: true,
   render: renderCompilerExplorer
 });
