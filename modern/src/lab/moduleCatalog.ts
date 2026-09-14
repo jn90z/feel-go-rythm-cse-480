@@ -48,7 +48,8 @@ const EXPLICIT_CATEGORY: Record<string, LabCategory> = {
   "call-stack": "Programming & Compilers",
   "recursion-call-stack": "Programming & Compilers",
   "compiler-explorer": "Programming & Compilers",
-  "compression-zip": "Foundations"
+  "compression-zip": "Foundations",
+  "turing-machine": "Foundations"
 };
 
 export function getLabCategory(id: string, title = "", description = ""): LabCategory {
