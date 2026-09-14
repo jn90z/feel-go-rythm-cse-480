@@ -44,6 +44,7 @@ const EXPLICIT_CATEGORY: Record<string, LabCategory> = {
   deadlocks: "Operating Systems",
   "cpu-scheduling": "Operating Systems",
   "page-replacement": "Operating Systems",
+  "cache-locality": "Operating Systems",
   networking: "Networking",
   "reliable-transport": "Networking",
   "encryption-keys": "Networking",
@@ -66,7 +67,7 @@ export function getLabCategory(id: string, title = "", description = ""): LabCat
   const text = `${id} ${title} ${description}`.toLowerCase();
   if (/\bai\b|machine learning|neural|llm|transformer|attention|embedding|softmax/.test(text)) return "AI & Machine Learning";
   if (/network|packet|transport|tcp|udp|router|vpn|encrypt|tls|tunnel/.test(text)) return "Networking";
-  if (/cpu|schedule|memory|page|deadlock|thread|concurr|mutex|process/.test(text)) return "Operating Systems";
+  if (/cpu|schedule|memory|cache|locality|page|deadlock|thread|concurr|mutex|process/.test(text)) return "Operating Systems";
   if (/tree|avl|stack|queue|hash|structure|heap/.test(text)) return "Data Structures";
   if (/compiler|assembly|recursion|call stack|language|api|sdk|http client/.test(text)) return "Programming & Compilers";
   if (/sort|search|path|graph|algorithm|vector|inverse square root/.test(text)) return "Algorithms";
