@@ -23,6 +23,15 @@ export interface Prediction {
   predicted: 0 | 1;
 }
 
+export interface GradientBreakdown {
+  probability: number;
+  error: number;
+  loss: number;
+  dw1: number;
+  dw2: number;
+  db: number;
+}
+
 export const DATASETS: Record<string, readonly Point2D[]> = {
   diagonal: [
     { x: -2.4, y: -1.8, label: 0 }, { x: -1.8, y: -1.3, label: 0 }, { x: -1.2, y: -1.9, label: 0 },
@@ -51,14 +60,54 @@ export function predict(point: Pick<Point2D, "x" | "y">, weights: NetworkWeights
   return { logit, probability, predicted: probability >= 0.5 ? 1 : 0 };
 }
 
-export function binaryCrossEntropy(points: readonly Point2D[], weights: NetworkWeights): number {
-  if (!points.length) return 0;
-  let total = 0;
+function pointLoss(label: 0 | 1, probability: number): number {
+  const p = Math.min(1 - 1e-9, Math.max(1e-9, probability));
+  return -(label * Math.log(p) + (1 - label) * Math.log(1 - p));
+}
+
+export function pointGradient(point: Point2D, weights: NetworkWeights): GradientBreakdown {
+  const probability = predict(point, weights).probability;
+  const error = probability - point.label;
+  return {
+    probability,
+    error,
+    loss: pointLoss(point.label, probability),
+    dw1: error * point.x,
+    dw2: error * point.y,
+    db: error
+  };
+}
+
+export function batchGradient(points: readonly Point2D[], weights: NetworkWeights): GradientBreakdown {
+  if (!points.length) return { probability: 0, error: 0, loss: 0, dw1: 0, dw2: 0, db: 0 };
+  let probability = 0;
+  let error = 0;
+  let loss = 0;
+  let dw1 = 0;
+  let dw2 = 0;
+  let db = 0;
   for (const point of points) {
-    const p = Math.min(1 - 1e-9, Math.max(1e-9, predict(point, weights).probability));
-    total += -(point.label * Math.log(p) + (1 - point.label) * Math.log(1 - p));
+    const gradient = pointGradient(point, weights);
+    probability += gradient.probability;
+    error += gradient.error;
+    loss += gradient.loss;
+    dw1 += gradient.dw1;
+    dw2 += gradient.dw2;
+    db += gradient.db;
   }
-  return total / points.length;
+  const scale = 1 / points.length;
+  return {
+    probability: probability * scale,
+    error: error * scale,
+    loss: loss * scale,
+    dw1: dw1 * scale,
+    dw2: dw2 * scale,
+    db: db * scale
+  };
+}
+
+export function binaryCrossEntropy(points: readonly Point2D[], weights: NetworkWeights): number {
+  return batchGradient(points, weights).loss;
 }
 
 export function accuracy(points: readonly Point2D[], weights: NetworkWeights): number {
@@ -69,20 +118,11 @@ export function accuracy(points: readonly Point2D[], weights: NetworkWeights): n
 export function trainOneEpoch(points: readonly Point2D[], weights: NetworkWeights, learningRate: number): NetworkWeights {
   if (!points.length) return { ...weights };
   const lr = Math.max(0.001, Math.min(5, Number.isFinite(learningRate) ? learningRate : 0.1));
-  let dw1 = 0;
-  let dw2 = 0;
-  let db = 0;
-  for (const point of points) {
-    const error = predict(point, weights).probability - point.label;
-    dw1 += error * point.x;
-    dw2 += error * point.y;
-    db += error;
-  }
-  const scale = lr / points.length;
+  const gradient = batchGradient(points, weights);
   return {
-    w1: weights.w1 - scale * dw1,
-    w2: weights.w2 - scale * dw2,
-    bias: weights.bias - scale * db
+    w1: weights.w1 - lr * gradient.dw1,
+    w2: weights.w2 - lr * gradient.dw2,
+    bias: weights.bias - lr * gradient.db
   };
 }
 
