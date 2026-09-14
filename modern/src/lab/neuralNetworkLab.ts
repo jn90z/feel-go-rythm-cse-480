@@ -40,6 +40,7 @@ function renderNeuralNetwork(host: HTMLElement): () => void {
   const reset = host.querySelector<HTMLButtonElement>("[data-nn-reset]")!;
   const xrayToggle = host.querySelector<HTMLButtonElement>("[data-nn-xray]")!;
   const xrayPanel = host.querySelector<HTMLElement>("[data-nn-xray-panel]")!;
+  const feedback = host.querySelector<HTMLElement>("[data-nn-feedback]")!;
   const scrub = host.querySelector<HTMLInputElement>("[data-nn-scrub]")!;
   const pointsGroup = host.querySelector<SVGGElement>("[data-nn-points]")!;
   const boundaryGroup = host.querySelector<SVGGElement>("[data-nn-boundary]")!;
@@ -78,6 +79,7 @@ function renderNeuralNetwork(host: HTMLElement): () => void {
     const pointGrad = pointGradient(point, snapshot.weights);
     const batchGrad = batchGradient(dataset, snapshot.weights);
     const lr = Math.max(0.001, Math.min(5, Number(lrSelect.value) || 0.1));
+    feedback.textContent = "";
 
     host.querySelector<HTMLElement>("[data-nn-epoch]")!.textContent = `Epoch ${snapshot.epoch}`;
     host.querySelector<HTMLElement>("[data-nn-w1]")!.textContent = snapshot.weights.w1.toFixed(4);
@@ -117,8 +119,8 @@ function renderNeuralNetwork(host: HTMLElement): () => void {
       circle.setAttribute("tabindex", "0");
       circle.setAttribute("role", "button");
       circle.setAttribute("aria-label", `Point ${i + 1}, class ${p.label}`);
-      circle.addEventListener("click", () => { selectedPoint = i; draw(); }, { signal });
-      circle.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); selectedPoint = i; draw(); } }, { signal });
+      circle.addEventListener("click", () => { selectedPoint = i; draw(); });
+      circle.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); selectedPoint = i; draw(); } });
       pointsGroup.append(circle);
     });
 
@@ -182,7 +184,7 @@ function renderNeuralNetwork(host: HTMLElement): () => void {
     const gradient = batchGradient(dataset, snapshots[index].weights);
     const correct = direction(gradient.dw1);
     const guess = button.dataset.nnGuess === "same" ? "stay about the same" : button.dataset.nnGuess;
-    host.querySelector<HTMLElement>("[data-nn-feedback]")!.textContent = guess === correct
+    feedback.textContent = guess === correct
       ? `Correct. Gradient descent subtracts the gradient, so w₁ will ${correct}.`
       : `Not this time. The average ∂L/∂w₁ is ${signed(gradient.dw1)}, so subtracting it makes w₁ ${correct}.`;
   }, { signal }));
