@@ -4,6 +4,7 @@ export type LabCategory =
   | "Operating Systems"
   | "Networking"
   | "Programming & Compilers"
+  | "AI & Machine Learning"
   | "Foundations";
 
 export const LAB_CATEGORIES: readonly LabCategory[] = [
@@ -12,6 +13,7 @@ export const LAB_CATEGORIES: readonly LabCategory[] = [
   "Operating Systems",
   "Networking",
   "Programming & Compilers",
+  "AI & Machine Learning",
   "Foundations"
 ];
 
@@ -50,6 +52,8 @@ const EXPLICIT_CATEGORY: Record<string, LabCategory> = {
   "call-stack": "Programming & Compilers",
   "recursion-call-stack": "Programming & Compilers",
   "compiler-explorer": "Programming & Compilers",
+  "cpp-api-integration": "Programming & Compilers",
+  "tiny-llm": "AI & Machine Learning",
   "compression-zip": "Foundations",
   "turing-machine": "Foundations"
 };
@@ -59,10 +63,11 @@ export function getLabCategory(id: string, title = "", description = ""): LabCat
   if (explicit) return explicit;
 
   const text = `${id} ${title} ${description}`.toLowerCase();
+  if (/\bai\b|machine learning|neural|llm|transformer|attention|embedding|softmax/.test(text)) return "AI & Machine Learning";
   if (/network|packet|transport|tcp|udp|router|vpn|encrypt|tls|tunnel/.test(text)) return "Networking";
   if (/cpu|schedule|memory|page|deadlock|thread|concurr|mutex|process/.test(text)) return "Operating Systems";
   if (/tree|avl|stack|queue|hash|structure|heap/.test(text)) return "Data Structures";
-  if (/compiler|assembly|recursion|call stack|language/.test(text)) return "Programming & Compilers";
+  if (/compiler|assembly|recursion|call stack|language|api|sdk|http client/.test(text)) return "Programming & Compilers";
   if (/sort|search|path|graph|algorithm|vector|inverse square root/.test(text)) return "Algorithms";
   return "Foundations";
 }
