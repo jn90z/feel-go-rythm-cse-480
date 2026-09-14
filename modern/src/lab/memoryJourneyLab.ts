@@ -13,7 +13,25 @@ const pct = (value: number): string => `${(value * 100).toFixed(1)}%`;
 
 type Prediction = "tlb-hit" | "tlb-miss" | "page-fault";
 
+interface MemoryJourneySeed {
+  baseAddress: number;
+  index: number;
+  effectiveAddress: number;
+}
+
+function readMemoryJourneySeed(host: HTMLElement): MemoryJourneySeed | null {
+  const parts = host.dataset.memoryJourneySeed?.split(":").map(Number);
+  if (!parts || parts.length !== 3 || parts.some(value => !Number.isFinite(value))) return null;
+  const [baseAddress, index, effectiveAddress] = parts.map(Math.trunc);
+  if (baseAddress < 0 || baseAddress > 63 || index < 0 || index > 15) return null;
+  if (effectiveAddress !== baseAddress + index * MEMORY_JOURNEY_CONFIG.elementBytes) return null;
+  return { baseAddress, index, effectiveAddress };
+}
+
 function renderMemoryJourneyLab(host: HTMLElement): () => void {
+  const seed = readMemoryJourneySeed(host);
+  const baseAddress = seed?.baseAddress ?? 48;
+
   host.innerHTML = `
     <div class="lab-module memory-journey-lab">
       <section class="lab-panel memory-journey-hero">
@@ -21,6 +39,7 @@ function renderMemoryJourneyLab(host: HTMLElement): () => void {
           <span class="memory-journey-kicker">X-Ray Mode · one load, every layer</span>
           <h3>Memory Journey: from C++ index to CPU cache</h3>
           <p class="lab-note">Follow one array read through address translation and caching. The fast path can stop at the TLB; a miss consults the page table; a non-resident page traps into the OS before the CPU can continue.</p>
+          <p class="lab-note" data-memory-origin hidden></p>
         </div>
         <div class="memory-journey-formula">arr[i] → virtual → TLB → page table / OS → physical → cache → value</div>
       </section>
@@ -47,7 +66,7 @@ function renderMemoryJourneyLab(host: HTMLElement): () => void {
         </div>
         <div class="memory-journey-source-value">
           <span>Current index</span><strong data-memory-index></strong>
-          <small>4-byte int · base virtual address 48</small>
+          <small data-memory-base></small>
         </div>
       </section>
 
@@ -118,10 +137,17 @@ function renderMemoryJourneyLab(host: HTMLElement): () => void {
   const patternSelect = host.querySelector<HTMLSelectElement>("[data-memory-pattern]")!;
   const timeline = host.querySelector<HTMLInputElement>("[data-memory-timeline]")!;
   const playButton = host.querySelector<HTMLButtonElement>("[data-memory-play]")!;
-  let step = 0;
+  let step = seed?.index ?? 0;
   let timer: number | null = null;
 
-  const currentRun = (): MemoryJourneyRun => simulateMemoryJourney(patternSelect.value as MemoryPattern, 48);
+  host.querySelector<HTMLElement>("[data-memory-base]")!.textContent = `4-byte int · base virtual address ${baseAddress}`;
+  if (seed) {
+    const origin = host.querySelector<HTMLElement>("[data-memory-origin]")!;
+    origin.hidden = false;
+    origin.textContent = `Continued from Source-to-Silicon: values[${seed.index}] produced virtual address ${seed.effectiveAddress} (0x${seed.effectiveAddress.toString(16).padStart(4, "0")}). The same load is highlighted below.`;
+  }
+
+  const currentRun = (): MemoryJourneyRun => simulateMemoryJourney(patternSelect.value as MemoryPattern, baseAddress);
 
   const stop = () => {
     if (timer !== null) window.clearInterval(timer);
@@ -194,7 +220,7 @@ function renderMemoryJourneyLab(host: HTMLElement): () => void {
   const renderComparison = () => {
     const target = host.querySelector<HTMLElement>("[data-memory-compare]")!;
     target.replaceChildren();
-    ([simulateMemoryJourney("sequential", 48), simulateMemoryJourney("page-hop", 48)] as MemoryJourneyRun[]).forEach(run => {
+    ([simulateMemoryJourney("sequential", baseAddress), simulateMemoryJourney("page-hop", baseAddress)] as MemoryJourneyRun[]).forEach(run => {
       const card = document.createElement("div");
       card.className = "memory-journey-compare-card";
       const title = document.createElement("strong");
@@ -221,7 +247,7 @@ function renderMemoryJourneyLab(host: HTMLElement): () => void {
       : "for (int i = 0; i < 16; ++i)\n    sum += arr[(i * 16) % 112];";
     host.querySelector<HTMLElement>("[data-memory-index]")!.textContent = String(current.sourceIndex);
     host.querySelector<HTMLElement>("[data-memory-va]")!.textContent = String(current.translation.virtualAddress);
-    host.querySelector<HTMLElement>("[data-memory-va-equation]")!.textContent = `48 + ${current.sourceIndex} × 4 bytes`;
+    host.querySelector<HTMLElement>("[data-memory-va-equation]")!.textContent = `${baseAddress} + ${current.sourceIndex} × 4 bytes`;
     host.querySelector<HTMLElement>("[data-memory-vpn]")!.textContent = `VPN ${current.translation.virtualPage}`;
     host.querySelector<HTMLElement>("[data-memory-page-offset]")!.textContent = `offset ${current.translation.pageOffset}`;
 
