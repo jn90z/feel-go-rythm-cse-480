@@ -29,6 +29,7 @@ const EXPLICIT_CATEGORY: Record<string, LabCategory> = {
   pathfinding: "Algorithms",
   "weighted-pathfinding": "Algorithms",
   "algorithm-math": "Algorithms",
+  "fast-inverse-sqrt": "Algorithms",
   structures: "Data Structures",
   trees: "Data Structures",
   hashing: "Data Structures",
@@ -62,7 +63,7 @@ export function getLabCategory(id: string, title = "", description = ""): LabCat
   if (/cpu|schedule|memory|page|deadlock|thread|concurr|mutex|process/.test(text)) return "Operating Systems";
   if (/tree|avl|stack|queue|hash|structure|heap/.test(text)) return "Data Structures";
   if (/compiler|assembly|recursion|call stack|language/.test(text)) return "Programming & Compilers";
-  if (/sort|search|path|graph|algorithm/.test(text)) return "Algorithms";
+  if (/sort|search|path|graph|algorithm|vector|inverse square root/.test(text)) return "Algorithms";
   return "Foundations";
 }
 
