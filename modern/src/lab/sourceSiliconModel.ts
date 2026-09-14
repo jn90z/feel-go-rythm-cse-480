@@ -19,7 +19,8 @@ export interface SourceSiliconTrace {
 const MIN_INDEX = 0;
 const MAX_INDEX = 15;
 const ELEMENT_SIZE = 4;
-const DEFAULT_BASE = 0x1000;
+// Shared with Memory Journey's bounded teaching address space so one load can cross labs without remapping.
+const DEFAULT_BASE = 48;
 
 export function clampTraceIndex(value: number): number {
   if (!Number.isFinite(value)) return 0;
