@@ -23,6 +23,8 @@ describe("source to silicon x-ray model", () => {
       "source", "tokens", "ast", "ir", "assembly", "registers", "address", "memory"
     ]);
     expect(trace.stages[0].code).toContain("values[2]");
-    expect(trace.stages.at(-1)?.code).toContain("0x1008");
+    expect(trace.baseAddress).toBe(48);
+    expect(trace.effectiveAddress).toBe(56);
+    expect(trace.stages.at(-1)?.code).toContain("0x0038");
   });
 });
