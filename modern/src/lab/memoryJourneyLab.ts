@@ -1,6 +1,7 @@
 import "./memoryJourneyLab.css";
 import { registerLabModule } from "./moduleRegistry";
 import {
+  INITIAL_PAGE_RESIDENCY,
   MEMORY_JOURNEY_CONFIG,
   PAGE_TABLE,
   simulateMemoryJourney,
@@ -10,6 +11,8 @@ import {
 
 const pct = (value: number): string => `${(value * 100).toFixed(1)}%`;
 
+type Prediction = "tlb-hit" | "tlb-miss" | "page-fault";
+
 function renderMemoryJourneyLab(host: HTMLElement): () => void {
   host.innerHTML = `
     <div class="lab-module memory-journey-lab">
@@ -17,9 +20,9 @@ function renderMemoryJourneyLab(host: HTMLElement): () => void {
         <div>
           <span class="memory-journey-kicker">X-Ray Mode · one load, every layer</span>
           <h3>Memory Journey: from C++ index to CPU cache</h3>
-          <p class="lab-note">Follow one array read across the abstractions the programmer normally cannot see: virtual memory translates the address, then the cache breaks the physical address into tag, set, and offset.</p>
+          <p class="lab-note">Follow one array read through address translation and caching. The fast path can stop at the TLB; a miss consults the page table; a non-resident page traps into the OS before the CPU can continue.</p>
         </div>
-        <div class="memory-journey-formula">arr[i] → virtual → page table → physical → cache → value</div>
+        <div class="memory-journey-formula">arr[i] → virtual → TLB → page table / OS → physical → cache → value</div>
       </section>
 
       <section class="lab-panel memory-journey-controls">
@@ -53,9 +56,11 @@ function renderMemoryJourneyLab(host: HTMLElement): () => void {
         <div class="memory-journey-chain">
           <div class="memory-journey-stage"><span>Virtual address</span><strong data-memory-va></strong><small data-memory-va-equation></small></div>
           <b>→</b>
-          <div class="memory-journey-stage"><span>Virtual page + offset</span><strong data-memory-vpn></strong><small data-memory-page-offset></small></div>
+          <div class="memory-journey-stage"><span>VPN + offset</span><strong data-memory-vpn></strong><small data-memory-page-offset></small></div>
           <b>→</b>
-          <div class="memory-journey-stage"><span>Page table</span><strong data-memory-frame></strong><small data-memory-pte></small></div>
+          <div class="memory-journey-stage" data-memory-tlb-stage><span>TLB lookup</span><strong data-memory-tlb-result></strong><small data-memory-tlb-detail></small></div>
+          <b>→</b>
+          <div class="memory-journey-stage" data-memory-walk-stage><span>Slow path</span><strong data-memory-walk-result></strong><small data-memory-walk-detail></small></div>
           <b>→</b>
           <div class="memory-journey-stage"><span>Physical address</span><strong data-memory-pa></strong><small data-memory-pa-equation></small></div>
           <b>→</b>
@@ -65,28 +70,34 @@ function renderMemoryJourneyLab(host: HTMLElement): () => void {
         </div>
       </section>
 
-      <section class="memory-journey-grid">
+      <section class="memory-journey-grid memory-journey-three-grid">
         <div class="lab-panel">
-          <span class="memory-journey-kicker">3 · Page table translation</span>
-          <div class="memory-journey-page-table" data-memory-page-table></div>
-          <p class="lab-note">The virtual page number selects a page-table entry. The page offset is preserved; only the page number changes into a physical frame number.</p>
+          <span class="memory-journey-kicker">3 · Translation lookaside buffer</span>
+          <div class="memory-journey-tlb" data-memory-tlb></div>
+          <p class="lab-note">The TLB is a tiny cache of recent virtual-page → physical-frame translations. A hit avoids a page-table lookup entirely.</p>
         </div>
         <div class="lab-panel">
-          <span class="memory-journey-kicker">4 · Direct-mapped cache</span>
+          <span class="memory-journey-kicker">4 · Page table + residency</span>
+          <div class="memory-journey-page-table" data-memory-page-table></div>
+          <p class="lab-note">VPN 6 begins non-resident. Its first access demonstrates a page fault: the hardware traps into the OS, the page becomes resident, and execution resumes.</p>
+        </div>
+        <div class="lab-panel">
+          <span class="memory-journey-kicker">5 · Direct-mapped cache</span>
           <div class="memory-journey-cache" data-memory-cache></div>
-          <p class="lab-note">The physical cache block chooses exactly one cache set. The tag tells the CPU which memory block is currently stored there.</p>
+          <p class="lab-note">After translation, the physical cache block chooses a cache set. The tag determines whether the desired block is already nearby.</p>
         </div>
       </section>
 
       <section class="lab-panel memory-journey-predict">
         <div>
           <span class="memory-journey-kicker">Predict before reveal</span>
-          <strong>What happens on the next array access?</strong>
+          <strong>Which translation path will the next access take?</strong>
           <p class="lab-note" data-memory-predict-prompt></p>
         </div>
         <div class="memory-journey-predict-actions">
-          <button type="button" data-memory-predict="hit">Cache hit</button>
-          <button type="button" data-memory-predict="miss">Cache miss</button>
+          <button type="button" data-memory-predict="tlb-hit">TLB hit</button>
+          <button type="button" data-memory-predict="tlb-miss">TLB miss</button>
+          <button type="button" data-memory-predict="page-fault">Page fault</button>
         </div>
         <p data-memory-feedback aria-live="polite"></p>
       </section>
@@ -97,8 +108,8 @@ function renderMemoryJourneyLab(host: HTMLElement): () => void {
       </section>
 
       <section class="lab-panel memory-journey-takeaway">
-        <strong>The connection most diagrams hide</strong>
-        <p class="lab-note">Virtual memory and CPU cache solve different problems, but they participate in the same load. The program produces a virtual address; address translation produces a physical address; the cache then decides whether that physical memory block is already nearby. This is why page behavior and cache locality are related parts of one memory hierarchy.</p>
+        <strong>The fast path and slow path are the same load</strong>
+        <p class="lab-note">Most memory diagrams isolate virtual memory, the TLB, page tables, page faults, and CPU caches. This X-Ray keeps them connected. A TLB hit skips the page table. A TLB miss performs a page-table lookup. If the page is absent, the CPU traps to the OS before translation can finish. Only then does the physical address reach the CPU cache.</p>
       </section>
     </div>`;
 
@@ -123,6 +134,23 @@ function renderMemoryJourneyLab(host: HTMLElement): () => void {
     host.querySelectorAll<HTMLButtonElement>("[data-memory-predict]").forEach(button => button.setAttribute("aria-pressed", "false"));
   };
 
+  const renderTlb = (run: MemoryJourneyRun) => {
+    const target = host.querySelector<HTMLElement>("[data-memory-tlb]")!;
+    const current = run.steps[step];
+    target.replaceChildren();
+    current.tlbEntries.forEach((entry, index) => {
+      const row = document.createElement("div");
+      row.className = "memory-journey-tlb-row";
+      if (index === current.tlbIndex) row.classList.add("is-active");
+      const slot = document.createElement("strong");
+      slot.textContent = `Slot ${index}`;
+      const value = document.createElement("span");
+      value.textContent = entry ? `VPN ${entry.virtualPage} → frame ${entry.physicalFrame}` : "empty";
+      row.append(slot, value);
+      target.append(row);
+    });
+  };
+
   const renderPageTable = (run: MemoryJourneyRun) => {
     const target = host.querySelector<HTMLElement>("[data-memory-page-table]")!;
     const current = run.steps[step];
@@ -131,12 +159,16 @@ function renderMemoryJourneyLab(host: HTMLElement): () => void {
       const row = document.createElement("div");
       row.className = "memory-journey-page-row";
       if (page === current.translation.virtualPage) row.classList.add("is-active");
+      if (!current.residentPages[page]) row.classList.add("is-nonresident");
+      if (page === current.translation.virtualPage && current.pageFault) row.classList.add("is-fault");
       const vpn = document.createElement("strong");
       vpn.textContent = `VPN ${page}`;
       const arrow = document.createElement("span");
-      arrow.textContent = "→";
+      arrow.textContent = current.residentPages[page] ? "→" : "↯";
       const pfn = document.createElement("span");
-      pfn.textContent = `frame ${frame}`;
+      pfn.textContent = current.residentPages[page]
+        ? `frame ${frame}`
+        : INITIAL_PAGE_RESIDENCY[page] ? `frame ${frame}` : "not resident";
       row.append(vpn, arrow, pfn);
       target.append(row);
     });
@@ -167,11 +199,13 @@ function renderMemoryJourneyLab(host: HTMLElement): () => void {
       card.className = "memory-journey-compare-card";
       const title = document.createElement("strong");
       title.textContent = run.pattern === "sequential" ? "Sequential" : "Page hopping";
-      const rate = document.createElement("b");
-      rate.textContent = `${pct(run.hitRate)} cache hit rate`;
-      const detail = document.createElement("span");
-      detail.textContent = `${run.hits} hits · ${run.misses} misses`;
-      card.append(title, rate, detail);
+      const cacheRate = document.createElement("b");
+      cacheRate.textContent = `${pct(run.hitRate)} cache hit rate`;
+      const tlbRate = document.createElement("span");
+      tlbRate.textContent = `${pct(run.tlbHitRate)} TLB hit rate · ${run.tlbMisses} translation misses`;
+      const faultDetail = document.createElement("span");
+      faultDetail.textContent = `${run.pageFaults} page fault${run.pageFaults === 1 ? "" : "s"}`;
+      card.append(title, cacheRate, tlbRate, faultDetail);
       target.append(card);
     });
   };
@@ -190,8 +224,31 @@ function renderMemoryJourneyLab(host: HTMLElement): () => void {
     host.querySelector<HTMLElement>("[data-memory-va-equation]")!.textContent = `48 + ${current.sourceIndex} × 4 bytes`;
     host.querySelector<HTMLElement>("[data-memory-vpn]")!.textContent = `VPN ${current.translation.virtualPage}`;
     host.querySelector<HTMLElement>("[data-memory-page-offset]")!.textContent = `offset ${current.translation.pageOffset}`;
-    host.querySelector<HTMLElement>("[data-memory-frame]")!.textContent = `frame ${current.translation.physicalFrame}`;
-    host.querySelector<HTMLElement>("[data-memory-pte]")!.textContent = `PTE[${current.translation.virtualPage}] = ${current.translation.physicalFrame}`;
+
+    const tlbResult = host.querySelector<HTMLElement>("[data-memory-tlb-result]")!;
+    tlbResult.textContent = current.tlbHit ? "TLB HIT" : "TLB MISS";
+    tlbResult.className = current.tlbHit ? "is-hit" : "is-miss";
+    host.querySelector<HTMLElement>("[data-memory-tlb-detail]")!.textContent = current.tlbHit
+      ? `slot ${current.tlbIndex} supplies frame ${current.translation.physicalFrame}`
+      : `slot ${current.tlbIndex} cannot supply VPN ${current.translation.virtualPage}`;
+
+    const walkResult = host.querySelector<HTMLElement>("[data-memory-walk-result]")!;
+    const walkStage = host.querySelector<HTMLElement>("[data-memory-walk-stage]")!;
+    walkStage.classList.toggle("is-fault", current.pageFault);
+    if (current.tlbHit) {
+      walkResult.textContent = "SKIPPED";
+      walkResult.className = "is-muted";
+      host.querySelector<HTMLElement>("[data-memory-walk-detail]")!.textContent = "no page-table access";
+    } else if (current.pageFault) {
+      walkResult.textContent = "PAGE FAULT";
+      walkResult.className = "is-fault";
+      host.querySelector<HTMLElement>("[data-memory-walk-detail]")!.textContent = `trap to OS → load VPN ${current.translation.virtualPage} → frame ${current.translation.physicalFrame}`;
+    } else {
+      walkResult.textContent = "PAGE TABLE";
+      walkResult.className = "is-walk";
+      host.querySelector<HTMLElement>("[data-memory-walk-detail]")!.textContent = `PTE[${current.translation.virtualPage}] → frame ${current.translation.physicalFrame}`;
+    }
+
     host.querySelector<HTMLElement>("[data-memory-pa]")!.textContent = String(current.translation.physicalAddress);
     host.querySelector<HTMLElement>("[data-memory-pa-equation]")!.textContent = `${current.translation.physicalFrame} × ${MEMORY_JOURNEY_CONFIG.pageSizeBytes} + ${current.translation.pageOffset}`;
     host.querySelector<HTMLElement>("[data-memory-cache-fields]")!.textContent = `tag ${current.cache.cacheTag} · set ${current.cache.cacheSet}`;
@@ -207,9 +264,10 @@ function renderMemoryJourneyLab(host: HTMLElement): () => void {
 
     const next = run.steps[step + 1];
     host.querySelector<HTMLElement>("[data-memory-predict-prompt]")!.textContent = next
-      ? `Next arr[${next.sourceIndex}] creates virtual address ${next.translation.virtualAddress}. Will its physical block already be cached?`
+      ? `Next arr[${next.sourceIndex}] creates VPN ${next.translation.virtualPage}. Does translation stay in the TLB, walk the page table, or trap to the OS?`
       : "End of trace. Scrub backward to make another prediction.";
     host.querySelectorAll<HTMLButtonElement>("[data-memory-predict]").forEach(button => { button.disabled = !next; });
+    renderTlb(run);
     renderPageTable(run);
     renderCache(run);
     renderComparison();
@@ -238,12 +296,17 @@ function renderMemoryJourneyLab(host: HTMLElement): () => void {
   host.querySelectorAll<HTMLButtonElement>("[data-memory-predict]").forEach(button => button.addEventListener("click", () => {
     const next = currentRun().steps[step + 1];
     if (!next) return;
-    const guess = button.dataset.memoryPredict;
-    const answer = next.hit ? "hit" : "miss";
+    const guess = button.dataset.memoryPredict as Prediction | undefined;
+    const answer: Prediction = next.pageFault ? "page-fault" : next.tlbHit ? "tlb-hit" : "tlb-miss";
     host.querySelectorAll<HTMLButtonElement>("[data-memory-predict]").forEach(candidate => candidate.setAttribute("aria-pressed", String(candidate === button)));
+    const path = answer === "tlb-hit"
+      ? `TLB slot ${next.tlbIndex} already contains VPN ${next.translation.virtualPage} → frame ${next.translation.physicalFrame}, so the page table is skipped.`
+      : answer === "page-fault"
+        ? `The TLB misses and VPN ${next.translation.virtualPage} is not resident, so hardware traps into the OS before installing the translation.`
+        : `The TLB misses, but VPN ${next.translation.virtualPage} is resident; the page table supplies frame ${next.translation.physicalFrame} and the TLB is filled.`;
     host.querySelector<HTMLElement>("[data-memory-feedback]")!.textContent = guess === answer
-      ? `Correct. VPN ${next.translation.virtualPage} maps to frame ${next.translation.physicalFrame}; physical address ${next.translation.physicalAddress} decodes to set ${next.cache.cacheSet}, tag ${next.cache.cacheTag}, producing a ${answer}.`
-      : `Follow the full chain: VPN ${next.translation.virtualPage} → frame ${next.translation.physicalFrame} → physical ${next.translation.physicalAddress} → set ${next.cache.cacheSet}, tag ${next.cache.cacheTag}. It will be a ${answer}.`;
+      ? `Correct. ${path}`
+      : `Not this time. ${path}`;
   }, { signal }));
 
   draw();
@@ -254,7 +317,7 @@ registerLabModule({
   id: "memory-journey",
   icon: "🔬",
   title: "Memory Journey X-Ray",
-  description: "Trace one C++ array access through virtual pages, physical frames, cache tag/set/offset, and the final hit or miss.",
+  description: "Trace one C++ array access through the TLB fast path, page table, page faults, physical memory, and CPU cache.",
   featured: true,
   render: renderMemoryJourneyLab
 });
