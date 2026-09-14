@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { attentionFor, deterministicSample, nextTokenDistribution, softmax, tokenizeTiny } from "./tinyLlmModel";
+import { attentionFor, attentionXRay, deterministicSample, nextTokenDistribution, softmax, tokenizeTiny } from "./tinyLlmModel";
 
 describe("tiny LLM model", () => {
   it("tokenizes bounded text", () => {
@@ -23,6 +23,24 @@ describe("tiny LLM model", () => {
     expect(result.tokens).toHaveLength(4);
     expect(result.weights).toHaveLength(4);
     expect(result.weights.reduce((sum, value) => sum + value, 0)).toBeCloseTo(1);
+  });
+
+  it("exposes the full attention calculation for x-ray mode", () => {
+    const xray = attentionXRay("the robot needed power", 1);
+    expect(xray).not.toBeNull();
+    expect(xray?.focusToken).toBe("robot");
+    expect(xray?.query).toEqual([0.3, 0.9, 0.2]);
+    expect(xray?.rows).toHaveLength(4);
+    expect(xray?.rows.reduce((sum, row) => sum + row.weight, 0)).toBeCloseTo(1);
+    expect(xray?.contextVector).toHaveLength(3);
+    xray?.contextVector.forEach(value => expect(Number.isFinite(value)).toBe(true));
+    expect(xray?.rows[xray.strongestIndex].weight).toBe(Math.max(...(xray?.rows.map(row => row.weight) ?? [])));
+  });
+
+  it("clamps invalid focus indices in x-ray mode", () => {
+    expect(attentionXRay("the robot", 99)?.focusToken).toBe("robot");
+    expect(attentionXRay("the robot", Number.NaN)?.focusToken).toBe("the");
+    expect(attentionXRay("", 0)).toBeNull();
   });
 
   it("samples deterministically for teaching", () => {
