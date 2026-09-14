@@ -9,6 +9,25 @@ export interface AttentionResult {
   weights: number[];
 }
 
+export interface AttentionXRayRow {
+  token: string;
+  key: [number, number, number];
+  rawDot: number;
+  scaledScore: number;
+  weight: number;
+  contribution: [number, number, number];
+}
+
+export interface AttentionXRay {
+  focusIndex: number;
+  focusToken: string;
+  query: [number, number, number];
+  scale: number;
+  rows: AttentionXRayRow[];
+  contextVector: [number, number, number];
+  strongestIndex: number;
+}
+
 export interface NextTokenCandidate {
   token: string;
   logit: number;
@@ -51,6 +70,37 @@ export function attentionFor(text: string, focusIndex: number): AttentionResult 
   const query = embeddingFor(tokens[index]);
   const scores = tokens.map(token => dot(query, embeddingFor(token)) / Math.sqrt(query.length));
   return { tokens, scores, weights: softmax(scores) };
+}
+
+export function attentionXRay(text: string, focusIndex: number): AttentionXRay | null {
+  const tokens = tokenizeTiny(text);
+  if (!tokens.length) return null;
+  const index = Math.max(0, Math.min(tokens.length - 1, Math.floor(Number.isFinite(focusIndex) ? focusIndex : 0)));
+  const query = embeddingFor(tokens[index]);
+  const scale = Math.sqrt(query.length);
+  const rawDots = tokens.map(token => dot(query, embeddingFor(token)));
+  const scaledScores = rawDots.map(value => value / scale);
+  const weights = softmax(scaledScores);
+  const rows = tokens.map((token, rowIndex): AttentionXRayRow => {
+    const key = embeddingFor(token);
+    return {
+      token,
+      key,
+      rawDot: rawDots[rowIndex],
+      scaledScore: scaledScores[rowIndex],
+      weight: weights[rowIndex],
+      contribution: [key[0] * weights[rowIndex], key[1] * weights[rowIndex], key[2] * weights[rowIndex]]
+    };
+  });
+  const contextVector: [number, number, number] = rows.reduce<[number, number, number]>(
+    (sum, row) => [sum[0] + row.contribution[0], sum[1] + row.contribution[1], sum[2] + row.contribution[2]],
+    [0, 0, 0]
+  );
+  let strongestIndex = 0;
+  weights.forEach((weight, rowIndex) => {
+    if (weight > weights[strongestIndex]) strongestIndex = rowIndex;
+  });
+  return { focusIndex: index, focusToken: tokens[index], query, scale, rows, contextVector, strongestIndex };
 }
 
 export function nextTokenDistribution(context: string, temperature = 1): NextTokenCandidate[] {
