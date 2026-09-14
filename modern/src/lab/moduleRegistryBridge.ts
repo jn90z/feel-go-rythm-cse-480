@@ -11,12 +11,19 @@ import {
   matchesLabCatalogItem,
   type LabCategory
 } from "./moduleCatalog";
+import { buildSourceSiliconTrace } from "./sourceSiliconModel";
 
 const overlay = document.querySelector<HTMLElement>(".lab-overlay");
 const body = overlay?.querySelector<HTMLElement>(".lab-body");
 const heading = overlay?.querySelector<HTMLHeadingElement>("h2");
 const back = overlay?.querySelector<HTMLButtonElement>(".lab-back");
 const graphHome = overlay?.querySelector<HTMLButtonElement>(".lab-home");
+
+interface MemoryJourneySeed {
+  baseAddress: number;
+  index: number;
+  effectiveAddress: number;
+}
 
 let activeCleanup: LabModuleCleanup | null = null;
 let activeCategory: LabCategory | "All" = "All";
@@ -52,7 +59,30 @@ function renderModuleError(host: HTMLElement, module: RegisteredLabModule, error
   host.append(panel);
 }
 
-function openRegisteredModule(module: RegisteredLabModule): void {
+function enhanceSourceSiliconHandoff(host: HTMLElement): void {
+  const handoff = host.querySelector<HTMLElement>(".source-silicon-handoff");
+  const indexInput = host.querySelector<HTMLInputElement>("#siliconIndex");
+  if (!handoff || !indexInput || handoff.querySelector("[data-continue-memory-journey]")) return;
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.dataset.continueMemoryJourney = "true";
+  button.textContent = "Continue this load →";
+  button.setAttribute("aria-label", "Continue this exact array load in Memory Journey X-Ray");
+  button.addEventListener("click", () => {
+    const memoryModule = listRegisteredLabModules().find(item => item.id === "memory-journey");
+    if (!memoryModule) return;
+    const trace = buildSourceSiliconTrace(Number(indexInput.value));
+    openRegisteredModule(memoryModule, {
+      baseAddress: trace.baseAddress,
+      index: trace.index,
+      effectiveAddress: trace.effectiveAddress
+    });
+  });
+  handoff.append(button);
+}
+
+function openRegisteredModule(module: RegisteredLabModule, memorySeed?: MemoryJourneySeed): void {
   if (!body || !heading || !back) return;
   cleanupActiveModule();
   back.hidden = false;
@@ -60,11 +90,15 @@ function openRegisteredModule(module: RegisteredLabModule): void {
   body.replaceChildren();
   const host = document.createElement("div");
   host.dataset.registeredLabHost = module.id;
+  if (module.id === "memory-journey" && memorySeed) {
+    host.dataset.memoryJourneySeed = `${memorySeed.baseAddress}:${memorySeed.index}:${memorySeed.effectiveAddress}`;
+  }
   body.append(host);
 
   const result = renderRegisteredLabModule(module, host);
   activeCleanup = result.cleanup;
   if (result.error) renderModuleError(host, module, result.error);
+  else if (module.id === "compiler-explorer") enhanceSourceSiliconHandoff(host);
 }
 
 function createRegisteredCard(module: RegisteredLabModule): HTMLButtonElement {
