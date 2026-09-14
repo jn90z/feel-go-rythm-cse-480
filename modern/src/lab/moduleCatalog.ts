@@ -28,6 +28,7 @@ const EXPLICIT_CATEGORY: Record<string, LabCategory> = {
   searching: "Algorithms",
   pathfinding: "Algorithms",
   "weighted-pathfinding": "Algorithms",
+  "algorithm-math": "Algorithms",
   structures: "Data Structures",
   trees: "Data Structures",
   hashing: "Data Structures",
