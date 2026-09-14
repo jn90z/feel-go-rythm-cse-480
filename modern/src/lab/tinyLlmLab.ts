@@ -1,0 +1,109 @@
+import "./tinyLlmLab.css";
+import { registerLabModule } from "./moduleRegistry";
+import { attentionFor, deterministicSample, embeddingFor, nextTokenDistribution, tokenizeTiny } from "./tinyLlmModel";
+
+function renderTinyLlm(host: HTMLElement): () => void {
+  host.innerHTML = `
+    <div class="lab-module tiny-llm-lab">
+      <section class="llm-hero lab-panel">
+        <div><span class="llm-kicker">AI · machine learning · transformers</span><h3>Build a tiny language model pipeline.</h3><p class="lab-note">This is a deliberately small, deterministic teaching model. It does not call an external AI service and it does not expose the hidden internals of ChatGPT; it teaches the same core ideas in a form you can inspect.</p></div>
+        <div class="llm-flow">TEXT → TOKENS → EMBEDDINGS → ATTENTION → LOGITS → SOFTMAX → SAMPLE → REPEAT</div>
+      </section>
+      <section class="lab-panel">
+        <div class="llm-controls"><label>Context<textarea data-llm-text maxlength="120" spellcheck="false">the robot needed power because it</textarea></label><button type="button" data-llm-reset>Reset example</button></div>
+        <div><span class="llm-kicker">1 · Tokenization</span><div class="llm-token-row" data-llm-tokens></div></div>
+      </section>
+      <section class="llm-grid">
+        <div class="lab-panel"><span class="llm-kicker">2 · Embeddings</span><p class="lab-note">Each token becomes a small vector. Real models use far more dimensions; this toy model uses three so the numbers stay readable.</p><div data-llm-embedding></div></div>
+        <div class="lab-panel"><span class="llm-kicker">3 · Attention</span><p class="lab-note">Select a token. Its query is compared with every token's key-like embedding. Softmax converts those scores into attention weights.</p><div class="llm-attention-list" data-llm-attention></div></div>
+      </section>
+      <section class="lab-panel"><span class="llm-kicker">Transformer idea</span><div class="llm-stage-grid"><div class="llm-stage"><strong>Query</strong><span>What am I looking for?</span></div><div class="llm-stage"><strong>Keys</strong><span>What does each token offer?</span></div><div class="llm-stage"><strong>Dot product</strong><span>How well do they match?</span></div><div class="llm-stage"><strong>Scale</strong><span>Keep scores stable</span></div><div class="llm-stage"><strong>Softmax</strong><span>Turn scores into weights</span></div><div class="llm-stage"><strong>Values</strong><span>Blend useful information</span></div></div></section>
+      <section class="llm-grid">
+        <div class="lab-panel"><span class="llm-kicker">4 · Next-token logits</span><p class="lab-note">Logits are raw scores. They are not probabilities yet.</p><div class="llm-prob-list" data-llm-logits></div></div>
+        <div class="lab-panel"><span class="llm-kicker">5 · Softmax + temperature</span><div class="llm-temperature"><span>Focused</span><input data-llm-temp type="range" min="0.2" max="2.5" step="0.1" value="1"><span data-llm-temp-label>1.0</span></div><div class="llm-prob-list" data-llm-probs></div></div>
+      </section>
+      <section class="lab-panel"><span class="llm-kicker">6 · Generate one token</span><div class="llm-generate"><button type="button" data-llm-generate>Generate One Token</button><button type="button" data-llm-clear>Clear generated</button><div class="llm-generated" data-llm-generated aria-live="polite"></div></div><p class="lab-note">Generation repeats the same cycle: append the sampled token, run the context through the model again, score the next token, sample again.</p></section>
+      <section class="lab-panel llm-note"><strong>What this teaches</strong><p class="lab-note">LLMs are not databases that fetch a completed sentence. At inference time they repeatedly predict a probability distribution over the next token. Training is the separate process that adjusts billions of parameters so those distributions become useful.</p></section>
+    </div>`;
+
+  const text = host.querySelector<HTMLTextAreaElement>("[data-llm-text]")!;
+  const tokensHost = host.querySelector<HTMLElement>("[data-llm-tokens]")!;
+  const embeddingHost = host.querySelector<HTMLElement>("[data-llm-embedding]")!;
+  const attentionHost = host.querySelector<HTMLElement>("[data-llm-attention]")!;
+  const logitsHost = host.querySelector<HTMLElement>("[data-llm-logits]")!;
+  const probsHost = host.querySelector<HTMLElement>("[data-llm-probs]")!;
+  const temp = host.querySelector<HTMLInputElement>("[data-llm-temp]")!;
+  const tempLabel = host.querySelector<HTMLElement>("[data-llm-temp-label]")!;
+  const generated = host.querySelector<HTMLElement>("[data-llm-generated]")!;
+  let focusIndex = 0;
+  let sampleCursor = 0.17;
+
+  const draw = () => {
+    const tokens = tokenizeTiny(text.value);
+    focusIndex = Math.max(0, Math.min(tokens.length - 1, focusIndex));
+    tokensHost.replaceChildren();
+    tokens.forEach((token, index) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `llm-token${index === focusIndex ? " active" : ""}`;
+      button.textContent = token;
+      button.addEventListener("click", () => { focusIndex = index; draw(); });
+      tokensHost.append(button);
+    });
+
+    embeddingHost.replaceChildren();
+    if (tokens.length) {
+      const token = tokens[focusIndex];
+      const vector = embeddingFor(token);
+      const p = document.createElement("p");
+      p.textContent = `Token “${token}” → [${vector.map(value => value.toFixed(2)).join(", ")}]`;
+      embeddingHost.append(p);
+    }
+
+    attentionHost.replaceChildren();
+    const attention = attentionFor(text.value, focusIndex);
+    attention.tokens.forEach((token, index) => {
+      const row = document.createElement("div"); row.className = "llm-att-row";
+      const label = document.createElement("span"); label.textContent = token;
+      const track = document.createElement("div"); track.className = "llm-bar-track";
+      const bar = document.createElement("div"); bar.className = "llm-bar"; bar.style.width = `${attention.weights[index] * 100}%`; track.append(bar);
+      const value = document.createElement("strong"); value.textContent = `${(attention.weights[index] * 100).toFixed(1)}%`;
+      row.append(label, track, value); attentionHost.append(row);
+    });
+
+    const distribution = nextTokenDistribution(text.value, Number(temp.value));
+    tempLabel.textContent = Number(temp.value).toFixed(1);
+    logitsHost.replaceChildren(); probsHost.replaceChildren();
+    distribution.forEach(candidate => {
+      const logitRow = document.createElement("div"); logitRow.className = "llm-prob-row";
+      const l1 = document.createElement("span"); l1.textContent = candidate.token;
+      const l2 = document.createElement("div"); l2.className = "llm-bar-track";
+      const lbar = document.createElement("div"); lbar.className = "llm-bar"; lbar.style.width = `${Math.max(4, Math.min(100, candidate.logit * 24))}%`; l2.append(lbar);
+      const l3 = document.createElement("strong"); l3.textContent = candidate.logit.toFixed(2); logitRow.append(l1,l2,l3); logitsHost.append(logitRow);
+
+      const probRow = document.createElement("div"); probRow.className = "llm-prob-row";
+      const p1 = document.createElement("span"); p1.textContent = candidate.token;
+      const p2 = document.createElement("div"); p2.className = "llm-bar-track";
+      const pbar = document.createElement("div"); pbar.className = "llm-bar"; pbar.style.width = `${candidate.probability * 100}%`; p2.append(pbar);
+      const p3 = document.createElement("strong"); p3.textContent = `${(candidate.probability * 100).toFixed(1)}%`; probRow.append(p1,p2,p3); probsHost.append(probRow);
+    });
+  };
+
+  const onText = () => { focusIndex = Math.max(0, tokenizeTiny(text.value).length - 1); draw(); };
+  const onTemp = () => draw();
+  text.addEventListener("input", onText); temp.addEventListener("input", onTemp);
+  host.querySelector<HTMLButtonElement>("[data-llm-reset]")!.addEventListener("click", () => { text.value = "the robot needed power because it"; focusIndex = 5; generated.textContent = ""; draw(); });
+  host.querySelector<HTMLButtonElement>("[data-llm-clear]")!.addEventListener("click", () => { generated.textContent = ""; });
+  host.querySelector<HTMLButtonElement>("[data-llm-generate]")!.addEventListener("click", () => {
+    const candidates = nextTokenDistribution(text.value, Number(temp.value));
+    const token = deterministicSample(candidates, sampleCursor);
+    sampleCursor = (sampleCursor + 0.37) % 1;
+    text.value = `${text.value.trim()} ${token}`.slice(0, 120);
+    generated.textContent = `Sampled “${token}”. New context: ${text.value}`;
+    focusIndex = Math.max(0, tokenizeTiny(text.value).length - 1); draw();
+  });
+  focusIndex = Math.max(0, tokenizeTiny(text.value).length - 1); draw();
+  return () => { text.removeEventListener("input", onText); temp.removeEventListener("input", onTemp); };
+}
+
+registerLabModule({ id: "tiny-llm", icon: "🧠", title: "Tiny LLM + Attention", description: "Inspect tokenization, embeddings, attention, logits, softmax, temperature, and next-token generation in a deterministic toy transformer pipeline.", featured: true, render: renderTinyLlm });
