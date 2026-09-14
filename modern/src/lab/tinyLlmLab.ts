@@ -25,8 +25,8 @@ function renderTinyLlm(host: HTMLElement): () => void {
         <div class="llm-xray-heading"><div><span class="llm-kicker">X-Ray Mode · see the invisible state</span><strong>Open the attention calculation instead of trusting the animation.</strong></div><button type="button" data-llm-xray-toggle aria-pressed="false">Show X-Ray</button></div>
         <div data-llm-xray hidden>
           <div class="llm-xray-summary"><div><span>Focused token</span><strong data-llm-xray-token></strong></div><div><span>Query Q</span><code data-llm-xray-query></code></div><div><span>Scale √dₖ</span><strong data-llm-xray-scale></strong></div><div><span>Context vector Σ(weight × V)</span><code data-llm-xray-context></code></div></div>
-          <div class="llm-predict"><label>Before revealing it, which token will receive the strongest attention?<select data-llm-predict></select></label><button type="button" data-llm-reveal>Reveal</button><span data-llm-feedback aria-live="polite"></span></div>
-          <div class="llm-xray-table-wrap"><table class="llm-xray-table"><thead><tr><th>Token</th><th>Key / Value</th><th>Q · K</th><th>÷ √dₖ</th><th>Softmax</th><th>weight × V</th></tr></thead><tbody data-llm-xray-rows></tbody></table></div>
+          <div class="llm-predict"><label>Before revealing the calculation, which token will receive the strongest attention?<select data-llm-predict></select></label><button type="button" data-llm-reveal>Reveal calculation</button><span data-llm-feedback aria-live="polite"></span></div>
+          <div class="llm-xray-table-wrap" data-llm-xray-detail hidden><table class="llm-xray-table"><thead><tr><th>Token</th><th>Key / Value</th><th>Q · K</th><th>÷ √dₖ</th><th>Softmax</th><th>weight × V</th></tr></thead><tbody data-llm-xray-rows></tbody></table></div>
           <p class="lab-note">This toy uses each embedding as both the key and value so every stage is visible. Real transformers learn separate projection matrices for Q, K, and V.</p>
         </div>
       </section>
@@ -52,12 +52,18 @@ function renderTinyLlm(host: HTMLElement): () => void {
   const generated = host.querySelector<HTMLElement>("[data-llm-generated]")!;
   const xrayToggle = host.querySelector<HTMLButtonElement>("[data-llm-xray-toggle]")!;
   const xrayPanel = host.querySelector<HTMLElement>("[data-llm-xray]")!;
+  const xrayDetail = host.querySelector<HTMLElement>("[data-llm-xray-detail]")!;
   const predict = host.querySelector<HTMLSelectElement>("[data-llm-predict]")!;
   const feedback = host.querySelector<HTMLElement>("[data-llm-feedback]")!;
   const xrayRows = host.querySelector<HTMLTableSectionElement>("[data-llm-xray-rows]")!;
   let focusIndex = 0;
   let sampleCursor = 0.17;
   let xrayOpen = false;
+
+  const resetPrediction = () => {
+    feedback.textContent = "";
+    xrayDetail.hidden = true;
+  };
 
   const draw = () => {
     const tokens = tokenizeTiny(text.value);
@@ -68,7 +74,7 @@ function renderTinyLlm(host: HTMLElement): () => void {
       button.type = "button";
       button.className = `llm-token${index === focusIndex ? " active" : ""}`;
       button.textContent = token;
-      button.onclick = () => { focusIndex = index; feedback.textContent = ""; draw(); };
+      button.onclick = () => { focusIndex = index; resetPrediction(); draw(); };
       tokensHost.append(button);
     });
 
@@ -127,7 +133,7 @@ function renderTinyLlm(host: HTMLElement): () => void {
     });
   };
 
-  text.addEventListener("input", () => { focusIndex = Math.max(0, tokenizeTiny(text.value).length - 1); feedback.textContent = ""; draw(); }, { signal });
+  text.addEventListener("input", () => { focusIndex = Math.max(0, tokenizeTiny(text.value).length - 1); resetPrediction(); draw(); }, { signal });
   temp.addEventListener("input", draw, { signal });
   xrayToggle.addEventListener("click", () => { xrayOpen = !xrayOpen; xrayPanel.hidden = !xrayOpen; xrayToggle.setAttribute("aria-pressed", String(xrayOpen)); xrayToggle.textContent = xrayOpen ? "Hide X-Ray" : "Show X-Ray"; }, { signal });
   host.querySelector<HTMLButtonElement>("[data-llm-reveal]")!.addEventListener("click", () => {
@@ -135,9 +141,10 @@ function renderTinyLlm(host: HTMLElement): () => void {
     if (!xray) { feedback.textContent = "Add at least one token first."; return; }
     const guess = Number(predict.value);
     const winner = xray.rows[xray.strongestIndex].token;
+    xrayDetail.hidden = false;
     feedback.textContent = guess === xray.strongestIndex ? `Correct — “${winner}” has the largest scaled match, so softmax gives it the most weight.` : `Not this time. “${winner}” receives the most weight. Compare the Q · K and scaled-score columns.`;
   }, { signal });
-  host.querySelector<HTMLButtonElement>("[data-llm-reset]")!.addEventListener("click", () => { text.value = "the robot needed power because it"; focusIndex = 5; generated.textContent = ""; feedback.textContent = ""; draw(); }, { signal });
+  host.querySelector<HTMLButtonElement>("[data-llm-reset]")!.addEventListener("click", () => { text.value = "the robot needed power because it"; focusIndex = 5; generated.textContent = ""; resetPrediction(); draw(); }, { signal });
   host.querySelector<HTMLButtonElement>("[data-llm-clear]")!.addEventListener("click", () => { generated.textContent = ""; }, { signal });
   host.querySelector<HTMLButtonElement>("[data-llm-generate]")!.addEventListener("click", () => {
     const candidates = nextTokenDistribution(text.value, Number(temp.value));
@@ -145,7 +152,7 @@ function renderTinyLlm(host: HTMLElement): () => void {
     sampleCursor = (sampleCursor + 0.37) % 1;
     text.value = `${text.value.trim()} ${token}`.slice(0, 120);
     generated.textContent = `Sampled “${token}”. New context: ${text.value}`;
-    focusIndex = Math.max(0, tokenizeTiny(text.value).length - 1); feedback.textContent = ""; draw();
+    focusIndex = Math.max(0, tokenizeTiny(text.value).length - 1); resetPrediction(); draw();
   }, { signal });
   focusIndex = Math.max(0, tokenizeTiny(text.value).length - 1); draw();
   return () => controller.abort();
